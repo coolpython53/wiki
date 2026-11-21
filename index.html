@@ -626,7 +626,12 @@ button.is-busy, input[type="submit"].is-busy { opacity: .55; pointer-events: non
 .container { max-width: 1440px; width: 100%; padding: 1.2rem clamp(0.6rem, 3vw, 2rem) 3rem; }
 .header-inner { max-width: 1440px; width: 100%; }
 .article-layout { grid-template-columns: 250px minmax(0, 1fr); }
-.article-main { width: 100%; }
+.article-toc { grid-column: 1; }
+.article-main { width: 100%; grid-column: 2; }
+/* No Contents box (article without headings): the article takes the
+   whole row instead of collapsing into the Contents column. */
+.article-layout.toc-hidden { grid-template-columns: minmax(0, 1fr); }
+.article-layout.toc-hidden .article-main { grid-column: 1; }
 .article-content { max-width: none; }
 .article-content img, .article-content video, .article-content iframe { max-width: 100%; }
 .editor-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
@@ -635,7 +640,8 @@ button.is-busy, input[type="submit"].is-busy { opacity: .55; pointer-events: non
 }
 @media (max-width: 860px) {
   .article-layout { grid-template-columns: 1fr; }
-  .article-main { padding: 1rem 0.9rem; }
+  .article-toc { grid-column: 1; }
+  .article-main { padding: 1rem 0.9rem; grid-column: 1; }
   .article-main h1 { font-size: 1.55rem; }
   .container { padding: 0.8rem 0.6rem 2rem; }
   .header-inner { flex-wrap: wrap; }
@@ -1801,7 +1807,13 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
   function buildToc(contentEl, tocEl) {
     if (!contentEl || !tocEl) return;
     var headings = contentEl.querySelectorAll('h2, h3');
-    if (headings.length === 0) { tocEl.style.display = 'none'; return; }
+    var layout = tocEl.closest ? tocEl.closest('.article-layout') : null;
+    if (headings.length === 0) {
+      tocEl.style.display = 'none';
+      if (layout) layout.classList.add('toc-hidden');
+      return;
+    }
+    if (layout) layout.classList.remove('toc-hidden');
     var list = document.createElement('ul');
     var seen = {};
     headings.forEach(function (h, idx) {
