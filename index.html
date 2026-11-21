@@ -652,6 +652,10 @@ button.is-busy, input[type="submit"].is-busy { opacity: .55; pointer-events: non
   .hero { padding: 1rem; }
   .hero h1 { font-size: 1.5rem; }
 }
+/* Image insert dialog: quality toggle + uploaded-picture rendering. */
+.toggle-row { display: flex; gap: 0.5rem; align-items: flex-start; cursor: pointer; font-weight: normal; }
+.toggle-row input { margin-top: 0.25rem; flex: none; }
+.article-content img.uploaded-image { max-width: 100%; height: auto; min-height: 48px; background: var(--surface-alt); }
 </style>
 </head>
 <body>
@@ -908,7 +912,19 @@ button.is-busy, input[type="submit"].is-busy { opacity: .55; pointer-events: non
 <dialog id="insert-dialog" aria-labelledby="insert-dialog-title">
   <h3 id="insert-dialog-title">Insert</h3>
   <div class="form-error" id="insert-error"></div>
-  <div class="field">
+  <div class="field" id="insert-quality-field" style="display:none">
+    <label>Picture quality</label>
+    <label class="toggle-row" for="insert-low-quality">
+      <input type="checkbox" id="insert-low-quality" checked>
+      <span><strong>Low quality upload</strong> — shrink the picture, turn it into base64, and store it inside the wiki itself</span>
+    </label>
+    <p class="muted small" style="margin:.3rem 0 0">Turn the toggle off for <strong>high quality</strong>: paste a link to a picture hosted elsewhere instead.</p>
+  </div>
+  <div class="field" id="insert-file-field" style="display:none">
+    <label for="insert-file">Choose a picture</label>
+    <input type="file" id="insert-file" accept="image/*">
+  </div>
+  <div class="field" id="insert-url-field">
     <label for="insert-url">URL (http or https)</label>
     <input type="url" id="insert-url">
   </div>
@@ -1756,7 +1772,11 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
       el.textContent = markdown || '';
       return el;
     }
-    var rawHtml = marked.parse(markdown || '', { breaks: false, gfm: true });
+    // Uploaded pictures are referenced as ![alt](img:IMAGE_ID). Swap the
+    // reference for a placeholder https URL before parsing so the
+    // sanitizer keeps it; it is resolved to real data after rendering.
+    var source = (markdown || '').replace(/\]\(img:([A-Za-z0-9\-]+)\)/g, '](' + IMG_REF_PREFIX + '$1)');
+    var rawHtml = marked.parse(source, { breaks: false, gfm: true });
     var clean = DOMPurify.sanitize(rawHtml, {
       FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
       FORBID_ATTR: ['onerror', 'onclick', 'onload', 'style']
@@ -1786,9 +1806,16 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
         a.setAttribute('rel', 'noopener noreferrer');
       }
     });
-    // Images: only http/https sources survive.
+    // Images: only http/https sources survive — plus uploaded pictures,
+    // whose placeholder source marks them for resolution below.
     holder.querySelectorAll('img').forEach(function (img) {
       var src = img.getAttribute('src') || '';
+      if (src.indexOf(IMG_REF_PREFIX) === 0) {
+        img.setAttribute('data-image-id', src.slice(IMG_REF_PREFIX.length));
+        img.removeAttribute('src');
+        img.classList.add('uploaded-image');
+        return;
+      }
       if (!/^https?:/i.test(src)) { img.remove(); return; }
       img.setAttribute('loading', 'lazy');
     });
@@ -1800,7 +1827,29 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
     }
     el.innerHTML = '';
     while (holder.firstChild) el.appendChild(holder.firstChild);
+    resolveUploadedImages(el);
     return el;
+  }
+
+  // Placeholder host for uploaded-picture references (see above).
+  var IMG_REF_PREFIX = 'https://wiki-images.invalid/img/';
+  var uploadedImageCache = {};
+
+  /** Fetches uploaded pictures by ID and swaps them into the page. */
+  function resolveUploadedImages(root) {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll('img[data-image-id]').forEach(function (img) {
+      var id = img.getAttribute('data-image-id');
+      if (!id) return;
+      if (uploadedImageCache[id]) { img.src = uploadedImageCache[id]; return; }
+      WikiAPI.request('getImage', { imageId: id }).then(function (data) {
+        var uri = 'data:' + (data.mime || 'image/jpeg') + ';base64,' + data.dataBase64;
+        uploadedImageCache[id] = uri;
+        img.src = uri;
+      }).catch(function () {
+        img.alt = (img.alt ? img.alt + ' ' : '') + '(picture could not be loaded)';
+      });
+    });
   }
 
   /** Builds a table of contents from the headings inside an article body. */
@@ -2170,22 +2219,95 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
     var urlInput = document.getElementById('insert-url');
     var textInput = document.getElementById('insert-text');
     var dialogError = document.getElementById('insert-error');
+    var urlField = document.getElementById('insert-url-field');
+    var qualityField = document.getElementById('insert-quality-field');
+    var fileField = document.getElementById('insert-file-field');
+    var fileInput = document.getElementById('insert-file');
+    var lowQualityToggle = document.getElementById('insert-low-quality');
     var dialogKind = 'link';
+
+    // For images only: low quality = upload a file (compressed + stored
+    // in the wiki); high quality = the classic URL link.
+    function syncImageMode() {
+      var isImage = dialogKind === 'image';
+      var low = isImage && lowQualityToggle.checked;
+      qualityField.style.display = isImage ? '' : 'none';
+      fileField.style.display = low ? '' : 'none';
+      urlField.style.display = low ? 'none' : '';
+    }
+    if (firstWire) lowQualityToggle.addEventListener('change', syncImageMode);
 
     function openDialog(kind) {
       dialogKind = kind;
       WikiAPI.hideError(dialogError);
       urlInput.value = '';
+      fileInput.value = '';
       textInput.value = kind === 'audio' ? 'Audio' : '';
       dialogTitle.textContent = kind === 'link' ? 'Insert link' : (kind === 'image' ? 'Insert image' : 'Insert audio');
       document.getElementById('insert-text-label').textContent =
         kind === 'link' ? 'Link text' : (kind === 'image' ? 'Image description' : 'Label (keep "Audio" to render a player)');
+      syncImageMode();
       if (typeof dialog.showModal === 'function') dialog.showModal();
       else dialog.setAttribute('open', '');
     }
 
+    /** Shrinks a picture file on a canvas and returns its base64 (JPEG). */
+    function compressImageFile(file) {
+      return new Promise(function (resolve, reject) {
+        var url = URL.createObjectURL(file);
+        var img = new Image();
+        img.onload = function () {
+          try {
+            var MAX_SIDE = 1280, QUALITY = 0.72;
+            var w = img.naturalWidth, h = img.naturalHeight;
+            var scale = Math.min(1, MAX_SIDE / Math.max(w, h));
+            var cw = Math.max(1, Math.round(w * scale));
+            var ch = Math.max(1, Math.round(h * scale));
+            var canvas = document.createElement('canvas');
+            canvas.width = cw; canvas.height = ch;
+            var ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, cw, ch);
+            ctx.drawImage(img, 0, 0, cw, ch);
+            URL.revokeObjectURL(url);
+            var dataUrl = canvas.toDataURL('image/jpeg', QUALITY);
+            resolve({ dataBase64: dataUrl.split(',')[1], mime: 'image/jpeg' });
+          } catch (e) { reject(e); }
+        };
+        img.onerror = function () {
+          URL.revokeObjectURL(url);
+          reject(new Error('That file could not be read as a picture.'));
+        };
+        img.src = url;
+      });
+    }
+
     if (firstWire) document.getElementById('insert-cancel').addEventListener('click', function () { dialog.close(); });
     if (firstWire) document.getElementById('insert-confirm').addEventListener('click', function () {
+      var confirmBtn = document.getElementById('insert-confirm');
+      // Low-quality image path: compress the chosen file, upload its
+      // base64 to the backend (which stores it split across sheet
+      // cells), and insert a short img: reference into the article.
+      if (dialogKind === 'image' && lowQualityToggle.checked) {
+        var file = fileInput.files && fileInput.files[0];
+        if (!file) { WikiAPI.showError(dialogError, new Error('Choose a picture first.')); return; }
+        if (!/^image\//.test(file.type || '')) { WikiAPI.showError(dialogError, new Error('That file is not a picture.')); return; }
+        WikiAPI.hideError(dialogError);
+        confirmBtn.disabled = true;
+        compressImageFile(file).then(function (compressed) {
+          return WikiAPI.request('uploadImage', {
+            fileName: file.name, mime: compressed.mime, dataBase64: compressed.dataBase64
+          });
+        }).then(function (data) {
+          confirmBtn.disabled = false;
+          dialog.close();
+          insertAtCursor(contentEl, '![' + (textInput.value.trim() || 'image') + '](img:' + data.imageId + ')', '', '');
+        }).catch(function (err) {
+          confirmBtn.disabled = false;
+          WikiAPI.showError(dialogError, err);
+        });
+        return;
+      }
       var url = urlInput.value.trim();
       var text = textInput.value.trim();
       if (!/^https?:\/\//i.test(url) && !(dialogKind === 'link' && /^mailto:/i.test(url))) {
