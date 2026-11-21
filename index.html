@@ -1,0 +1,2617 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liquid Wiki — a collaborative wiki</title>
+<meta name="description" content="A public collaborative wiki. Every edit is reviewed by an administrator before it is published.">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<style>
+/* ============================================================
+   style.css
+   ============================================================ */
+/* style.css — global layout, navigation, forms, cards, tables.
+   Article typography lives in css/articles.css, the editor in
+   css/editor.css, and the admin dashboard in css/dashboard.css. */
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-alt: #eef1f5;
+  --text: #1c2333;
+  --muted: #5b6577;
+  --border: #d5dae3;
+  --accent: #0b5fa5;
+  --accent-contrast: #ffffff;
+  --danger: #b3261e;
+  --success-bg: #e6f4ea;
+  --success-text: #14532d;
+  --error-bg: #fdecea;
+  --error-text: #7a1c16;
+  --notice-bg: #fff4d6;
+  --notice-text: #5f4b00;
+  --radius: 10px;
+  --shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
+}
+
+[data-theme="dark"] {
+  --bg: #12151c;
+  --surface: #1b1f29;
+  --surface-alt: #232936;
+  --text: #e8ebf1;
+  --muted: #9aa5b5;
+  --border: #333b4d;
+  --accent: #5aa9e6;
+  --accent-contrast: #0b1522;
+  --danger: #e5736b;
+  --success-bg: #14301d;
+  --success-text: #9ed3ae;
+  --error-bg: #3a1713;
+  --error-text: #f0a49c;
+  --notice-bg: #3a2f10;
+  --notice-text: #f0d48a;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.site-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.header-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0.6rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.logo {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.logo:hover { text-decoration: none; }
+.logo-mark {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-radius: 8px;
+  padding: 0.1rem 0.5rem;
+  font-size: 1.1rem;
+}
+
+.main-nav {
+  display: flex;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  align-items: center;
+  flex: 1;
+}
+.main-nav a { color: var(--text); font-size: 0.95rem; }
+
+.auth-area {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+  margin-left: auto;
+}
+
+.container {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 1.2rem 1rem 3rem;
+}
+
+.hero {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.4rem;
+  box-shadow: var(--shadow);
+  margin-bottom: 1.2rem;
+}
+.hero h1 { margin: 0 0 0.4rem; font-size: 1.9rem; }
+.hero p { color: var(--muted); margin: 0.2rem 0 1rem; }
+
+.search-bar { display: flex; gap: 0.5rem; }
+.search-bar input {
+  flex: 1;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  box-shadow: var(--shadow);
+}
+.card h3 { margin: 0 0 0.4rem; }
+.card-meta { color: var(--muted); font-size: 0.88rem; margin: 0.4rem 0 0; }
+
+section.block { margin: 1.6rem 0; }
+section.block > h2 { border-bottom: 2px solid var(--border); padding-bottom: 0.3rem; }
+
+.badge {
+  display: inline-block;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.05rem 0.55rem;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.category-chip {
+  display: inline-block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  margin: 0.2rem;
+  color: var(--text);
+}
+.category-chip:hover { border-color: var(--accent); text-decoration: none; }
+
+.muted { color: var(--muted); }
+.small { font-size: 0.88rem; }
+
+/* Buttons */
+.button, button.button {
+  display: inline-block;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.button:hover, button.button:hover { filter: brightness(1.08); text-decoration: none; }
+.button:disabled { opacity: 0.55; cursor: not-allowed; }
+.button-small { padding: 0.3rem 0.7rem; font-size: 0.85rem; margin-right: 0.3rem; }
+.button-secondary {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+.button-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.link-button {
+  background: none; border: none; color: var(--accent);
+  cursor: pointer; font-size: 0.95rem; padding: 0;
+}
+.icon-button {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0.35rem 0.6rem;
+  font-size: 1rem;
+}
+
+/* Forms */
+.form-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.4rem;
+  max-width: 520px;
+  margin: 1rem auto;
+}
+.form-card.wide { max-width: 760px; }
+.field { margin-bottom: 1rem; }
+.field label { display: block; font-weight: 600; margin-bottom: 0.3rem; }
+.field input, .field select, .field textarea {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1rem;
+  font-family: inherit;
+}
+.form-error {
+  display: none;
+  background: var(--error-bg);
+  color: var(--error-text);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  margin: 0.8rem 0;
+}
+.form-success {
+  display: none;
+  background: var(--success-bg);
+  color: var(--success-text);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  margin: 0.8rem 0;
+}
+
+/* Tables */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  font-size: 0.92rem;
+}
+.data-table th, .data-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+}
+.data-table th { background: var(--surface-alt); }
+.table-scroll { overflow-x: auto; }
+
+/* Token progress bar */
+.progress {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  height: 18px;
+  overflow: hidden;
+  margin: 0.5rem 0;
+}
+.progress-bar {
+  background: var(--accent);
+  height: 100%;
+  transition: width 0.3s ease;
+}
+.token-numbers {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.8rem;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.8rem;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+.stat-card strong { display: block; font-size: 1.5rem; }
+.stat-card span { color: var(--muted); font-size: 0.85rem; }
+
+.backend-notice {
+  background: var(--notice-bg);
+  color: var(--notice-text);
+  padding: 0.7rem 1rem;
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+.highlight { outline: 3px solid var(--accent); outline-offset: 4px; border-radius: var(--radius); }
+
+.contribution-item, .notice-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 0.6rem;
+}
+.notice-item.read { opacity: 0.65; }
+.notice-item .button { margin-left: 0.6rem; }
+
+.site-footer {
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  text-align: center;
+  padding: 1.2rem 1rem 2rem;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 720px) {
+  .header-inner { gap: 0.5rem; }
+  .main-nav { order: 3; width: 100%; }
+  .hero h1 { font-size: 1.5rem; }
+  .grid { grid-template-columns: 1fr; }
+  .form-card { padding: 1rem; }
+}
+</style>
+<style>
+/* ============================================================
+   css/articles.css
+   ============================================================ */
+/* articles.css — article reading view and rendered Markdown typography. */
+
+.article-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 1.4rem;
+  align-items: start;
+}
+
+.article-toc {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+  position: sticky;
+  top: 84px;
+}
+.article-toc h2 { font-size: 1rem; margin: 0 0 0.5rem; }
+.article-toc ul { list-style: none; margin: 0; padding: 0; }
+.article-toc li { margin: 0.3rem 0; }
+.article-toc .toc-sub { margin-left: 1rem; font-size: 0.92rem; }
+
+.article-main {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.6rem;
+  min-width: 0;
+}
+.article-main h1 { margin-top: 0; font-size: 2rem; line-height: 1.2; }
+.article-meta { color: var(--muted); margin-bottom: 1.2rem; }
+
+.article-content { font-size: 1.02rem; overflow-wrap: break-word; }
+.article-content h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.25rem; margin-top: 1.6em; }
+.article-content h3 { margin-top: 1.3em; }
+.article-content img { max-width: 100%; height: auto; border-radius: 6px; }
+.article-content audio { width: 100%; margin: 0.6rem 0; }
+.article-content blockquote {
+  border-left: 4px solid var(--accent);
+  margin: 1rem 0;
+  padding: 0.4rem 1rem;
+  color: var(--muted);
+  background: var(--surface-alt);
+}
+.article-content table { border-collapse: collapse; margin: 1rem 0; display: block; overflow-x: auto; }
+.article-content th, .article-content td { border: 1px solid var(--border); padding: 0.4rem 0.7rem; }
+.article-content th { background: var(--surface-alt); }
+.article-content code {
+  background: var(--surface-alt);
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  font-family: Consolas, "Liberation Mono", monospace;
+  font-size: 0.92em;
+}
+.article-content pre {
+  background: #0d1117;
+  color: #e6edf3;
+  border-radius: 8px;
+  padding: 1rem;
+  overflow-x: auto;
+}
+.article-content pre code { background: transparent; padding: 0; color: inherit; }
+.article-content hr { border: none; border-top: 1px solid var(--border); margin: 1.6rem 0; }
+.article-content .unsafe-link { color: var(--danger); text-decoration: line-through; }
+
+.article-actions { margin: 1rem 0; display: flex; gap: 0.6rem; flex-wrap: wrap; }
+
+@media (max-width: 860px) {
+  .article-layout { grid-template-columns: 1fr; }
+  .article-toc { position: static; }
+  .article-main { padding: 1.1rem; }
+}
+</style>
+<style>
+/* ============================================================
+   css/editor.css
+   ============================================================ */
+/* editor.css — Markdown editor layout, toolbar, and live preview. */
+
+.editor-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.editor-pane, .preview-pane {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1rem;
+  min-width: 0;
+}
+.preview-pane .article-content { max-height: 70vh; overflow-y: auto; }
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.6rem;
+}
+.toolbar button {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.toolbar button:hover { border-color: var(--accent); }
+
+#edit-content {
+  width: 100%;
+  min-height: 420px;
+  font-family: Consolas, "Liberation Mono", monospace;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  padding: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  resize: vertical;
+}
+
+.cost-line {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  margin: 0.8rem 0;
+  font-size: 0.95rem;
+}
+
+dialog#insert-dialog {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  padding: 1.2rem;
+  width: min(440px, 92vw);
+}
+dialog#insert-dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+.dialog-actions { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 0.8rem; }
+
+@media (max-width: 900px) {
+  .editor-layout { grid-template-columns: 1fr; }
+  #edit-content { min-height: 300px; }
+}
+</style>
+<style>
+/* ============================================================
+   css/dashboard.css
+   ============================================================ */
+/* dashboard.css — administrator dashboard and moderation diff view. */
+
+.admin-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.1rem;
+  margin-bottom: 1.2rem;
+}
+.admin-section > h2 { margin-top: 0; }
+
+.pending-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+.pending-item:hover { border-color: var(--accent); }
+
+.diff-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.diff-pane {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.8rem;
+  min-width: 0;
+}
+.diff-pane h3 { margin-top: 0; }
+.diff-pane pre {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  font-family: Consolas, "Liberation Mono", monospace;
+  font-size: 0.85rem;
+  max-height: 380px;
+  overflow-y: auto;
+}
+.diff-pane .article-content { max-height: 380px; overflow-y: auto; font-size: 0.92rem; }
+
+.diff-lines {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: Consolas, "Liberation Mono", monospace;
+  font-size: 0.85rem;
+  max-height: 380px;
+  overflow-y: auto;
+  margin-top: 1rem;
+}
+.diff-line { padding: 0.15rem 0.6rem; white-space: pre-wrap; overflow-wrap: break-word; }
+.diff-add { background: rgba(46, 160, 67, 0.16); }
+.diff-remove { background: rgba(207, 34, 46, 0.14); }
+
+.inline-form {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: end;
+}
+.inline-form .field { margin-bottom: 0; flex: 1; min-width: 150px; }
+
+textarea.config-json {
+  font-family: Consolas, "Liberation Mono", monospace;
+  font-size: 0.85rem;
+  min-height: 190px;
+}
+
+@media (max-width: 900px) {
+  .diff-grid { grid-template-columns: 1fr; }
+}
+</style>
+<style>
+/* ============================================================
+   Single-page app shell additions
+   ============================================================ */
+[data-view][hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="logo" href="#/"><span class="logo-mark">W</span> Liquid&nbsp;Wiki</a>
+    <nav class="main-nav" aria-label="Main">
+      <a href="#/">Home</a>
+      <a href="#/" data-scroll="all-articles">All Articles</a>
+      <a href="#/" data-scroll="categories">Categories</a>
+      <a href="#/" data-scroll="recent">Recent Changes</a>
+      <button type="button" class="link-button" data-random-article>Random Article</button>
+      <a href="#/profile" data-scroll="contributions">My Contributions</a>
+      <a href="#/profile" data-scroll="tokens">My Tokens</a>
+      <a href="#/profile">My Profile</a>
+    </nav>
+    <div class="auth-area" data-auth-area></div>
+    <button type="button" class="icon-button" data-theme-toggle aria-label="Toggle light or dark mode">◐</button>
+  </div>
+</header>
+
+<section class="container" data-view="home">
+<section class="hero">
+    <h1>Welcome to Liquid Wiki</h1>
+    <p>A collaborative encyclopedia written by its readers. Every new article and every edit is
+       reviewed by an administrator before it becomes public, and editing is powered by a daily
+       allowance of editing tokens.</p>
+    <form class="search-bar" id="search-form" role="search">
+      <input type="search" id="search-input" aria-label="Search articles" autocomplete="off">
+      <button type="submit" class="button">Search</button>
+      <button type="button" class="button button-secondary" data-random-article>Random article</button>
+    </form>
+    <div id="search-results" style="margin-top:1rem"></div>
+  </section>
+
+  <section class="block" id="featured">
+    <h2>Featured articles</h2>
+    <div class="grid" id="featured-articles"><p class="muted">Loading…</p></div>
+  </section>
+
+  <section class="block" id="recent">
+    <h2>Recently updated</h2>
+    <div class="grid" id="recent-updated"><p class="muted">Loading…</p></div>
+    <h2 style="margin-top:1.6rem">Recently created</h2>
+    <div class="grid" id="recent-created"><p class="muted">Loading…</p></div>
+  </section>
+
+  <section class="block" id="categories">
+    <h2>Categories</h2>
+    <div id="category-list"><p class="muted">Loading…</p></div>
+  </section>
+
+  <section class="block" id="all-articles">
+    <h2>All articles</h2>
+    <div class="grid" id="all-articles-list"><p class="muted">Loading…</p></div>
+  </section>
+</section>
+
+<section class="container" data-view="article" hidden>
+<div class="form-error" id="article-error"></div>
+  <div class="article-layout">
+    <nav class="article-toc" id="article-toc" aria-label="Table of contents">
+      <h2>Contents</h2>
+    </nav>
+    <article class="article-main">
+      <h1 id="article-title">Loading…</h1>
+      <p class="article-meta" id="article-meta"></p>
+      <div class="article-actions">
+        <a class="button" id="edit-article-btn" href="#/editor">Edit this article</a>
+        <button type="button" class="button button-secondary" data-random-article>Random article</button>
+      </div>
+      <div class="article-content" id="article-content"></div>
+    </article>
+  </div>
+
+  <section class="block">
+    <h2>Revision history</h2>
+    <div class="table-scroll" id="article-history"><p class="muted">Loading…</p></div>
+  </section>
+
+  <section class="block">
+    <h2>Related articles</h2>
+    <div class="grid" id="related-articles"></div>
+  </section>
+</section>
+
+<section class="container" data-view="login" hidden>
+<div class="form-card">
+    <h1>Log in</h1>
+    <div class="form-error" id="login-error"></div>
+    <form id="login-form">
+      <div class="field">
+        <label for="login-email">Email</label>
+        <input type="email" id="login-email" required autocomplete="email">
+      </div>
+      <div class="field">
+        <label for="login-password">Password</label>
+        <input type="password" id="login-password" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="button" style="width:100%">Log in</button>
+    </form>
+    <p class="muted">No account yet? <a href="#/register">Register</a> — it is free and you receive
+       100 editing tokens every day.</p>
+    <p class="muted small">Repeated failed logins temporarily lock the account. If you have forgotten
+       your password, contact the wiki administrator; passwords are stored only as salted hashes and
+       cannot be recovered or shown to anyone.</p>
+  </div>
+</section>
+
+<section class="container" data-view="register" hidden>
+<div class="form-card">
+    <h1>Create your account</h1>
+    <div class="form-error" id="register-error"></div>
+    <form id="register-form">
+      <div class="field">
+        <label for="register-username">Username</label>
+        <input type="text" id="register-username" required autocomplete="username" maxlength="30">
+        <p class="muted small">3–30 characters: letters, numbers, and underscores. Must be unique.</p>
+      </div>
+      <div class="field">
+        <label for="register-email">Email</label>
+        <input type="email" id="register-email" required autocomplete="email">
+        <p class="muted small">Must be unique. Never shown to other users.</p>
+      </div>
+      <div class="field">
+        <label for="register-password">Password</label>
+        <input type="password" id="register-password" required autocomplete="new-password">
+        <p class="muted small">At least 8 characters. Stored only as a salted PBKDF2 hash — never in plain text.</p>
+      </div>
+      <div class="field">
+        <label for="register-password-confirm">Confirm password</label>
+        <input type="password" id="register-password-confirm" required autocomplete="new-password">
+      </div>
+      <button type="submit" class="button" style="width:100%">Register</button>
+    </form>
+    <p class="muted">Already registered? <a href="#/login">Log in</a>.</p>
+    <p class="muted small">New accounts start each day with 100 editing tokens. Submitting an article or
+       edit costs 1–100 tokens depending on its length, and every submission is reviewed by the
+       administrator before it is published.</p>
+  </div>
+</section>
+
+<section class="container" data-view="profile" hidden>
+<h1 id="profile-username">My profile</h1>
+  <p class="muted" id="profile-meta">Loading…</p>
+  <p><a class="button" href="#/editor">Write an article</a>
+     <a class="button button-secondary" id="profile-admin-link" href="#/admin" style="display:none">Administrator dashboard</a></p>
+
+  <section class="block">
+    <h2>Contribution statistics</h2>
+    <div class="stat-grid" id="profile-stats"></div>
+  </section>
+
+  <section class="block" id="tokens">
+    <h2>My editing tokens</h2>
+    <div class="card" id="token-dashboard"><p class="muted">Loading…</p></div>
+    <h3>Token history</h3>
+    <div class="table-scroll" id="token-history"></div>
+  </section>
+
+  <section class="block" id="contributions">
+    <h2>My contributions</h2>
+    <div id="contributions-list"><p class="muted">Loading…</p></div>
+  </section>
+
+  <section class="block" id="change-password-section">
+    <h2>Change password</h2>
+    <p class="form-error" id="force-change-note">You signed in with the initial administrator password.
+       You must set a new password now.</p>
+    <div class="form-card wide" style="margin:0">
+      <div class="form-error" id="change-password-error"></div>
+      <div class="form-success" id="change-password-ok"></div>
+      <form id="change-password-form">
+        <div class="field">
+          <label for="current-password">Current password</label>
+          <input type="password" id="current-password" required autocomplete="current-password">
+        </div>
+        <div class="field">
+          <label for="new-password">New password</label>
+          <input type="password" id="new-password" required autocomplete="new-password">
+        </div>
+        <div class="field">
+          <label for="new-password-confirm">Confirm new password</label>
+          <input type="password" id="new-password-confirm" required autocomplete="new-password">
+        </div>
+        <button type="submit" class="button">Change password</button>
+      </form>
+      <p class="muted small">Changing your password signs out every other session.</p>
+    </div>
+  </section>
+</section>
+
+<section class="container" data-view="editor" hidden>
+<h1 id="editor-heading">Write a new article</h1>
+  <p class="muted">Write in Markdown. Nothing becomes public until the administrator approves it —
+     the currently published version (if any) stays untouched while your submission is reviewed.</p>
+
+  <div class="form-error" id="editor-error"></div>
+  <div class="form-success" id="editor-success"></div>
+
+  <form id="editor-form">
+    <div class="field">
+      <label for="edit-title">Title</label>
+      <input type="text" id="edit-title" required maxlength="200">
+    </div>
+    <div class="field">
+      <label for="edit-category">Category</label>
+      <select id="edit-category" required></select>
+    </div>
+
+    <div class="editor-layout">
+      <div class="editor-pane">
+        <div class="toolbar" role="toolbar" aria-label="Formatting">
+          <button type="button" data-md="bold" title="Bold"><strong>B</strong></button>
+          <button type="button" data-md="italic" title="Italic"><em>I</em></button>
+          <button type="button" data-md="strike" title="Strikethrough"><s>S</s></button>
+          <button type="button" data-md="h2" title="Heading 2">H2</button>
+          <button type="button" data-md="h3" title="Heading 3">H3</button>
+          <button type="button" data-md="quote" title="Blockquote">❝ Quote</button>
+          <button type="button" data-md="ul" title="Bullet list">• List</button>
+          <button type="button" data-md="ol" title="Numbered list">1. List</button>
+          <button type="button" data-md="code" title="Inline code">&lt;/&gt;</button>
+          <button type="button" data-md="code-block" title="Code block">Code block</button>
+          <button type="button" data-md="table" title="Table">Table</button>
+          <button type="button" data-md="hr" title="Horizontal rule">― Rule</button>
+          <button type="button" data-md="link" title="Insert link">🔗 Link</button>
+          <button type="button" data-md="image" title="Insert image">🖼 Image</button>
+          <button type="button" data-md="audio" title="Insert audio">🔊 Audio</button>
+        </div>
+        <label for="edit-content" class="muted small">Markdown content</label>
+        <textarea id="edit-content" required></textarea>
+      </div>
+      <div class="preview-pane">
+        <p class="muted small" style="margin-top:0">Live preview</p>
+        <div class="article-content" id="editor-preview"></div>
+      </div>
+    </div>
+
+    <div class="cost-line">
+      <div id="cost-estimate">Estimated cost: —</div>
+      <div id="token-balance-line" class="muted"></div>
+    </div>
+
+    <button type="submit" class="button" id="submit-article">Submit for approval</button>
+  </form>
+
+<dialog id="insert-dialog" aria-labelledby="insert-dialog-title">
+  <h3 id="insert-dialog-title">Insert</h3>
+  <div class="form-error" id="insert-error"></div>
+  <div class="field">
+    <label for="insert-url">URL (http or https)</label>
+    <input type="url" id="insert-url">
+  </div>
+  <div class="field">
+    <label for="insert-text" id="insert-text-label">Text</label>
+    <input type="text" id="insert-text">
+  </div>
+  <div class="dialog-actions">
+    <button type="button" class="button button-secondary" id="insert-cancel">Cancel</button>
+    <button type="button" class="button" id="insert-confirm">Insert</button>
+  </div>
+</dialog>
+</section>
+
+<section class="container" data-view="admin" hidden>
+<h1>Administrator dashboard</h1>
+  <div class="form-error" id="admin-denied" style="display:none">
+    This page is for the wiki administrator only. Your account does not have the administrator role.
+  </div>
+  <div class="form-error" id="admin-error"></div>
+
+  <div id="admin-dashboard">
+    <section class="admin-section">
+      <h2>Notifications</h2>
+      <div id="admin-notifications"><p class="muted">Loading…</p></div>
+    </section>
+
+    <section class="admin-section">
+      <h2>Wiki statistics</h2>
+      <div class="stat-grid" id="admin-stats"></div>
+    </section>
+
+    <section class="admin-section">
+      <h2>Moderation queue</h2>
+      <div id="pending-list"><p class="muted">Loading…</p></div>
+
+      <div id="diff-panel" style="display:none">
+        <h3 id="diff-title"></h3>
+        <p class="muted" id="diff-meta"></p>
+        <div class="diff-grid">
+          <div class="diff-pane">
+            <h3>Currently published</h3>
+            <pre id="diff-old-text"></pre>
+            <h3>Rendered</h3>
+            <div class="article-content" id="diff-old-render"></div>
+          </div>
+          <div class="diff-pane">
+            <h3>Proposed revision</h3>
+            <pre id="diff-new-text"></pre>
+            <h3>Rendered</h3>
+            <div class="article-content" id="diff-new-render"></div>
+          </div>
+        </div>
+        <h3>Line-by-line changes</h3>
+        <div class="diff-lines" id="diff-lines"></div>
+        <div class="field" style="margin-top:1rem">
+          <label for="reject-reason">Rejection reason (optional, sent to the author)</label>
+          <input type="text" id="reject-reason" maxlength="500">
+        </div>
+        <button type="button" class="button" id="approve-btn">Approve &amp; publish</button>
+        <button type="button" class="button button-danger" id="reject-btn">Reject</button>
+      </div>
+    </section>
+
+    <section class="admin-section">
+      <h2>Registered users</h2>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Registered</th><th>Tokens today</th><th>Actions</th></tr></thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="admin-section">
+      <h2>Token controls</h2>
+      <form id="token-adjust-form" class="inline-form">
+        <div class="field">
+          <label for="adjust-user">User</label>
+          <select id="adjust-user" required></select>
+        </div>
+        <div class="field">
+          <label for="adjust-mode">Action</label>
+          <select id="adjust-mode">
+            <option value="add">Add tokens (raise today's allowance)</option>
+            <option value="remove">Remove tokens (lower today's allowance)</option>
+            <option value="refund">Refund spent tokens</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="adjust-amount">Amount</label>
+          <input type="number" id="adjust-amount" min="1" required>
+        </div>
+        <div class="field">
+          <label for="adjust-reason">Reason</label>
+          <input type="text" id="adjust-reason" maxlength="300">
+        </div>
+        <button type="submit" class="button">Apply</button>
+      </form>
+      <div class="form-success" id="token-adjust-result"></div>
+
+      <h3 style="margin-top:1.4rem">Recent token transactions (all users)</h3>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Date</th><th>User</th><th>Type</th><th>Tokens</th><th>Reason</th><th>By</th></tr></thead>
+          <tbody id="admin-transactions-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="admin-section">
+      <h2>Wiki configuration</h2>
+      <form id="config-form">
+        <div class="field">
+          <label for="config-allowance">Daily token allowance (standard users)</label>
+          <input type="number" id="config-allowance" min="1" required>
+        </div>
+        <div class="field">
+          <label for="config-pricing">Pricing table (JSON: array of {"maxChars": number or null, "cost": 1–100}; the last tier must have maxChars null)</label>
+          <textarea id="config-pricing" class="config-json"></textarea>
+        </div>
+        <button type="submit" class="button">Save configuration</button>
+        <div class="form-success" id="config-result"></div>
+      </form>
+    </section>
+
+    <section class="admin-section">
+      <h2>Published articles</h2>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Title</th><th>Category</th><th>Author</th><th>Updated</th><th>Actions</th></tr></thead>
+          <tbody id="admin-articles-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="admin-section">
+      <h2>Categories</h2>
+      <div id="admin-categories" style="margin-bottom:1rem"></div>
+      <form id="category-form" class="inline-form">
+        <div class="field">
+          <label for="category-name">New category name</label>
+          <input type="text" id="category-name" required maxlength="60">
+        </div>
+        <div class="field">
+          <label for="category-description">Description</label>
+          <input type="text" id="category-description" maxlength="300">
+        </div>
+        <button type="submit" class="button">Add category</button>
+      </form>
+    </section>
+
+    <section class="admin-section">
+      <h2>Audit log</h2>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Details</th></tr></thead>
+          <tbody id="audit-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</section>
+
+<footer class="site-footer">
+  Liquid Wiki — every edit is administrator-approved before publishing. Editing tokens reset daily at midnight UTC.
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+/* ============================================================
+   js/api.js
+   ============================================================ */
+/**
+ * api.js — the single gateway between the static frontend and the
+ * Google Apps Script backend.
+ *
+ * Requests are POSTs with a JSON body sent as text/plain. This is a
+ * deliberate CORS strategy: Apps Script web apps cannot answer CORS
+ * preflight (OPTIONS) requests, and a text/plain JSON body is a "simple
+ * request" that needs no preflight. The session token travels in the
+ * body (never a cookie), because Apps Script cannot set/read cookies
+ * for cross-origin callers reliably.
+ *
+ * Only the session token is kept in browser storage. Every piece of wiki
+ * data lives behind this API in Google Sheets.
+ */
+
+/* =====================================================================
+   Backend endpoint — the deployed Google Apps Script web app (/exec).
+   This URL is not a secret: it is the public endpoint of the backend.
+   All security lives in the backend itself — the frontend is never
+   trusted for identity, roles, or token math.
+   ===================================================================== */
+const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4XiMLePjZ99tEGYs6WWoQSSzQ4adC3vyRbSVpjz4ftAQ/exec";
+
+(function () {
+  'use strict';
+
+  var TOKEN_KEY = 'wiki.sessionToken';
+
+  function inPagesDir() {
+    return false; // single-file app: there are no subdirectories
+  }
+
+  /** Hash route for a page of the wiki (single-page app routing). */
+  var PAGE_ROUTES = {
+    'index.html': '#/',
+    'article.html': '#/article',
+    'login.html': '#/login',
+    'register.html': '#/register',
+    'profile.html': '#/profile',
+    'editor.html': '#/editor',
+    'admin.html': '#/admin'
+  };
+
+  function pageUrl(page) {
+    return PAGE_ROUTES[page] || '#/';
+  }
+
+  function homeUrl() {
+    return '#/';
+  }
+
+  function apiUrl() {
+    return API_URL || '';
+  }
+
+  function isConfigured() {
+    return apiUrl() !== '';
+  }
+
+  /** Shows the friendly "backend not configured" banner once per page. */
+  function showConfigNotice() {
+    if (document.getElementById('backend-notice')) return;
+    var div = document.createElement('div');
+    div.id = 'backend-notice';
+    div.className = 'backend-notice';
+    div.innerHTML = '<strong>Backend not configured.</strong> Set the <code>API_URL</code> constant ' +
+      'in this file to your deployed Google Apps Script web app URL. ' +
+      'See the project README for the full setup guide.';
+    document.body.insertBefore(div, document.body.firstChild);
+  }
+
+  function getToken() {
+    try { return window.localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; }
+  }
+
+  function setToken(token) {
+    try {
+      if (token) window.localStorage.setItem(TOKEN_KEY, token);
+      else window.localStorage.removeItem(TOKEN_KEY);
+    } catch (e) { /* storage unavailable: session simply will not persist */ }
+  }
+
+  /**
+   * Calls one backend action. Resolves with the response data; rejects
+   * with an Error carrying the backend's message (and token details when
+   * the error is about an insufficient balance).
+   */
+  function request(action, payload) {
+    if (!isConfigured()) {
+      showConfigNotice();
+      return Promise.reject(new Error('Backend not configured: the API_URL constant is empty.'));
+    }
+    var body = Object.assign({}, payload || {}, { action: action });
+    var token = getToken();
+    if (token) body.sessionToken = token;
+    return fetch(apiUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(body)
+    }).then(function (res) {
+      return res.text();
+    }).then(function (text) {
+      var json;
+      try { json = JSON.parse(text); }
+      catch (e) { throw new Error('The backend returned an unreadable response. Check that API_URL points to the deployed web app.'); }
+      if (!json.ok) {
+        var err = new Error(json.error || 'Request failed.');
+        if (json.code) err.code = json.code;
+        if (json.required !== undefined) err.required = json.required;
+        if (json.remaining !== undefined) err.remaining = json.remaining;
+        if (json.nextResetUtc) err.nextResetUtc = json.nextResetUtc;
+        throw err;
+      }
+      return json.data;
+    });
+  }
+
+  /** Small helper: sets text content safely (never innerHTML with user data). */
+  function setText(el, text) {
+    if (el) el.textContent = text === undefined || text === null ? '' : String(text);
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso);
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  function formatDateTime(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso);
+    return d.toLocaleString();
+  }
+
+  function escapeHtml(s) {
+    return String(s === undefined || s === null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  /** Shows an error message inside an element with class "form-error". */
+  function showError(el, err) {
+    if (!el) return;
+    el.textContent = err && err.message ? err.message : String(err);
+    el.style.display = 'block';
+  }
+
+  function hideError(el) {
+    if (el) { el.textContent = ''; el.style.display = 'none'; }
+  }
+
+  window.WikiAPI = {
+    request: request,
+    isConfigured: isConfigured,
+    showConfigNotice: showConfigNotice,
+    getToken: getToken,
+    setToken: setToken,
+    pageUrl: pageUrl,
+    homeUrl: homeUrl,
+    inPagesDir: inPagesDir,
+    setText: setText,
+    formatDate: formatDate,
+    formatDateTime: formatDateTime,
+    escapeHtml: escapeHtml,
+    showError: showError,
+    hideError: hideError
+  };
+
+  // ---------- single-page router ----------
+  // The views are the [data-view] sections of this single file. Routes:
+  //   #/                              home
+  //   #/article/<slug>                article page
+  //   #/login, #/register             auth pages
+  //   #/profile                       profile (+ token dashboard)
+  //   #/editor                        new article
+  //   #/editor/<slug>                 edit an article
+  //   #/editor/<slug>/direct          administrator direct edit
+  //   #/admin                         administrator dashboard
+  // Hashes that do not start with "#/" are ordinary in-page anchors
+  // (section links, table-of-contents entries) and are left alone.
+  // Query-style parameters (?slug=..., ?next=..., ?forcePasswordChange=1)
+  // are also understood, for the links the modules build.
+
+  var VIEW_TITLES = {
+    home: 'Liquid Wiki — a collaborative wiki',
+    article: 'Article — Liquid Wiki',
+    login: 'Log in — Liquid Wiki',
+    register: 'Register — Liquid Wiki',
+    profile: 'My profile — Liquid Wiki',
+    editor: 'Write — Liquid Wiki',
+    admin: 'Administrator dashboard — Liquid Wiki'
+  };
+
+  var pendingScrollTarget = null;
+  var routerStarted = false;
+
+  function parseRoute() {
+    var hash = window.location.hash || '';
+    if (hash.indexOf('#/') !== 0) return null;
+    var rest = hash.slice(2);
+    var qIndex = rest.indexOf('?');
+    var path = qIndex >= 0 ? rest.slice(0, qIndex) : rest;
+    var query = {};
+    if (qIndex >= 0) {
+      new URLSearchParams(rest.slice(qIndex + 1)).forEach(function (value, key) { query[key] = value; });
+    }
+    var parts = path.split('/').filter(function (s) { return s.length > 0; }).map(function (s) {
+      try { return decodeURIComponent(s); } catch (e) { return s; }
+    });
+    var route = { name: 'home', param: null, extra: null, query: query };
+    if (parts.length === 0) return route;
+    if (parts[0] === 'article') {
+      route.name = 'article';
+      route.param = parts[1] || query.slug || null;
+    } else if (parts[0] === 'editor') {
+      route.name = 'editor';
+      route.param = parts[1] || query.slug || null;
+      route.extra = parts[2] || (query.direct === '1' ? 'direct' : null);
+    } else if (parts[0] === 'login' || parts[0] === 'register' ||
+               parts[0] === 'profile' || parts[0] === 'admin') {
+      route.name = parts[0];
+    }
+    return route;
+  }
+
+  function applyPendingScroll() {
+    if (!pendingScrollTarget) return;
+    var target = document.getElementById(pendingScrollTarget);
+    pendingScrollTarget = null;
+    if (target) target.scrollIntoView();
+  }
+
+  function showView(route) {
+    var found = false;
+    document.querySelectorAll('[data-view]').forEach(function (view) {
+      var match = view.getAttribute('data-view') === route.name;
+      view.hidden = !match;
+      if (match) found = true;
+    });
+    if (!found) return;
+    document.title = VIEW_TITLES[route.name] || 'Liquid Wiki';
+    if (pendingScrollTarget) window.setTimeout(applyPendingScroll, 60);
+    else window.scrollTo(0, 0);
+    var init = window.WikiViews && window.WikiViews[route.name];
+    if (typeof init === 'function') init(route);
+  }
+
+  function routeFromHash() {
+    var route = parseRoute();
+    if (!route) {
+      // Not a route hash (in-page anchor or none): only the very first
+      // routing pass falls back to the home view.
+      if (!routerStarted) {
+        routerStarted = true;
+        showView({ name: 'home', param: null, extra: null, query: {} });
+      }
+      return;
+    }
+    routerStarted = true;
+    showView(route);
+  }
+
+  // Nav links with data-scroll="section-id" jump to a section of the
+  // view they point at (e.g. "All Articles" on home, "My Tokens" on
+  // the profile). The scroll is applied after the view switches.
+  document.addEventListener('click', function (ev) {
+    var t = ev.target && ev.target.closest ? ev.target.closest('[data-scroll]') : null;
+    if (!t) return;
+    pendingScrollTarget = t.getAttribute('data-scroll');
+    window.setTimeout(applyPendingScroll, 150);
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!isConfigured()) showConfigNotice();
+    routeFromHash();
+    window.addEventListener('hashchange', routeFromHash);
+  });
+})();
+</script>
+<script>
+/* ============================================================
+   js/auth.js
+   ============================================================ */
+/**
+ * auth.js — session handling, navigation state, theme toggle, and the
+ * login / register / change-password forms. Identity and role always come
+ * from the backend (`me` action); nothing here invents permissions.
+ */
+(function () {
+  'use strict';
+
+  var currentUser = null;
+
+  /** Fetches the signed-in user from the backend, or null when signed out. */
+  function loadCurrentUser() {
+    if (!WikiAPI.getToken() || !WikiAPI.isConfigured()) return Promise.resolve(null);
+    return WikiAPI.request('me', {}).then(function (data) {
+      currentUser = data.user;
+      return currentUser;
+    }).catch(function () {
+      WikiAPI.setToken('');
+      currentUser = null;
+      return null;
+    });
+  }
+
+  function getCurrentUser() { return currentUser; }
+
+  /** Redirects to the login view when nobody is signed in. */
+  function requireAuth(nextRoute) {
+    return loadCurrentUser().then(function (user) {
+      if (!user) {
+        window.location.hash = '#/login' + (nextRoute ? '?next=' + encodeURIComponent(nextRoute) : '');
+        throw new Error('redirecting to login');
+      }
+      return user;
+    });
+  }
+
+  function logout() {
+    return WikiAPI.request('logout', {}).catch(function () { /* revoke is best-effort client-side */ })
+      .then(function () {
+        WikiAPI.setToken('');
+        currentUser = null;
+        renderAuthArea();
+        window.location.hash = WikiAPI.homeUrl();
+      });
+  }
+
+  /** Fills every [data-auth-area] element with the right links. */
+  function renderAuthArea() {
+    var areas = document.querySelectorAll('[data-auth-area]');
+    areas.forEach(function (area) {
+      if (currentUser) {
+        area.innerHTML =
+          '<a href="#/editor">Write</a>' +
+          '<a href="#/profile">' + WikiAPI.escapeHtml(currentUser.username) + '</a>' +
+          (currentUser.role === 'admin' ? '<a href="#/admin">Admin</a>' : '') +
+          '<button type="button" class="link-button" data-logout>Log out</button>';
+        var btn = area.querySelector('[data-logout]');
+        if (btn) btn.addEventListener('click', logout);
+      } else {
+        area.innerHTML =
+          '<a href="#/login">Log in</a>' +
+          '<a class="button button-small" href="#/register">Register</a>';
+      }
+    });
+  }
+
+  // ---------- theme (light/dark), a display preference only ----------
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    try { window.localStorage.setItem('wiki.theme', theme); } catch (e) { /* ignore */ }
+  }
+
+  function initTheme() {
+    var saved = 'light';
+    try { saved = window.localStorage.getItem('wiki.theme') || 'light'; } catch (e) { /* ignore */ }
+    applyTheme(saved === 'dark' ? 'dark' : 'light');
+    document.querySelectorAll('[data-theme-toggle]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var now = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        applyTheme(now);
+      });
+    });
+  }
+
+  // ---------- global navigation helpers ----------
+
+  function initRandomButtons() {
+    document.querySelectorAll('[data-random-article]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        WikiAPI.request('getRandomArticle', {}).then(function (article) {
+          window.location.hash = '#/article/' + encodeURIComponent(article.slug);
+        }).catch(function (err) { window.alert(err.message); });
+      });
+    });
+  }
+
+  function initNav() {
+    initTheme();
+    initRandomButtons();
+    loadCurrentUser().then(renderAuthArea);
+  }
+
+  // ---------- login & register forms ----------
+
+  function nextDestination(fallback) {
+    var hash = window.location.hash || '';
+    var qIndex = hash.indexOf('?');
+    var next = null;
+    if (qIndex >= 0) next = new URLSearchParams(hash.slice(qIndex + 1)).get('next');
+    // Only simple route names are honoured, never arbitrary URLs.
+    if (next && /^[a-z]+$/.test(next)) return '#/' + next;
+    return fallback;
+  }
+
+  function initLoginForm() {
+    var form = document.getElementById('login-form');
+    if (!form) return;
+    var errorBox = document.getElementById('login-error');
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      WikiAPI.hideError(errorBox);
+      var submit = form.querySelector('button[type="submit"]');
+      submit.disabled = true;
+      WikiAPI.request('login', {
+        email: document.getElementById('login-email').value,
+        password: document.getElementById('login-password').value
+      }).then(function (data) {
+        WikiAPI.setToken(data.sessionToken);
+        currentUser = data.user;
+        renderAuthArea();
+        if (data.passwordChangeRequired) {
+          window.alert('For security, you must change the initial password before continuing.');
+          window.location.hash = '#/profile?forcePasswordChange=1';
+        } else {
+          window.location.hash = nextDestination(WikiAPI.homeUrl());
+        }
+      }).catch(function (err) {
+        WikiAPI.showError(errorBox, err);
+      }).then(function () { submit.disabled = false; });
+    });
+  }
+
+  function initRegisterForm() {
+    var form = document.getElementById('register-form');
+    if (!form) return;
+    var errorBox = document.getElementById('register-error');
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      WikiAPI.hideError(errorBox);
+      var password = document.getElementById('register-password').value;
+      var confirm = document.getElementById('register-password-confirm').value;
+      if (password !== confirm) {
+        WikiAPI.showError(errorBox, new Error('Passwords do not match.'));
+        return;
+      }
+      var submit = form.querySelector('button[type="submit"]');
+      submit.disabled = true;
+      WikiAPI.request('register', {
+        username: document.getElementById('register-username').value,
+        email: document.getElementById('register-email').value,
+        password: password
+      }).then(function (data) {
+        WikiAPI.setToken(data.sessionToken);
+        currentUser = data.user;
+        renderAuthArea();
+        window.location.hash = WikiAPI.homeUrl();
+      }).catch(function (err) {
+        WikiAPI.showError(errorBox, err);
+      }).then(function () { submit.disabled = false; });
+    });
+  }
+
+  /** Change-password form (used on the profile page). */
+  function initChangePasswordForm() {
+    var form = document.getElementById('change-password-form');
+    if (!form) return;
+    var errorBox = document.getElementById('change-password-error');
+    var okBox = document.getElementById('change-password-ok');
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      WikiAPI.hideError(errorBox);
+      if (okBox) okBox.style.display = 'none';
+      var next = document.getElementById('new-password').value;
+      var confirm = document.getElementById('new-password-confirm').value;
+      if (next !== confirm) {
+        WikiAPI.showError(errorBox, new Error('New passwords do not match.'));
+        return;
+      }
+      WikiAPI.request('changePassword', {
+        currentPassword: document.getElementById('current-password').value,
+        newPassword: next
+      }).then(function () {
+        form.reset();
+        if (okBox) { okBox.textContent = 'Password changed. Other sessions have been signed out.'; okBox.style.display = 'block'; }
+      }).catch(function (err) {
+        WikiAPI.showError(errorBox, err);
+      });
+    });
+  }
+
+  /** Profile page: account details, statistics, and contribution list. */
+  function initProfilePage(query) {
+    var nameEl = document.getElementById('profile-username');
+    if (!nameEl) return; // not the profile view
+    if (query && query.forcePasswordChange) {
+      var section = document.getElementById('change-password-section');
+      if (section) {
+        section.classList.add('highlight');
+        section.scrollIntoView();
+        var note = document.getElementById('force-change-note');
+        if (note) note.style.display = 'block';
+      }
+    }
+    loadCurrentUser().then(function (user) {
+      if (!user) {
+        window.location.hash = '#/login';
+        return;
+      }
+      return WikiAPI.request('getProfile', {}).then(function (data) {
+        WikiAPI.setText(nameEl, data.user.username);
+        WikiAPI.setText(document.getElementById('profile-meta'),
+          'Registered ' + WikiAPI.formatDate(data.user.registrationDate) +
+          ' · Role: ' + data.user.role + ' · Status: ' + data.user.status +
+          ' · Email: ' + (data.user.email || ''));
+        var stats = data.stats;
+        document.getElementById('profile-stats').innerHTML =
+          '<div class="stat-card"><strong>' + stats.articlesAuthored + '</strong><span>Articles authored</span></div>' +
+          '<div class="stat-card"><strong>' + stats.approved + '</strong><span>Approved submissions</span></div>' +
+          '<div class="stat-card"><strong>' + stats.pending + '</strong><span>Pending submissions</span></div>' +
+          '<div class="stat-card"><strong>' + stats.rejected + '</strong><span>Rejected submissions</span></div>';
+        var adminLink = document.getElementById('profile-admin-link');
+        if (adminLink && data.user.role === 'admin') adminLink.style.display = 'inline-block';
+      });
+    }).catch(function () { /* errors surface in the token dashboard */ });
+
+    var contribEl = document.getElementById('contributions-list');
+    if (contribEl) {
+      WikiAPI.request('getMySubmissions', {}).then(function (rows) {
+        if (!rows.length) { contribEl.innerHTML = '<p class="muted">No contributions yet. Write your first article!</p>'; return; }
+        contribEl.innerHTML = '';
+        rows.forEach(function (s) {
+          var div = document.createElement('div');
+          div.className = 'contribution-item';
+          var titleHtml = s.articleSlug && s.status === 'Approved'
+            ? '<a href="#/article/' + encodeURIComponent(s.articleSlug) + '">' + WikiAPI.escapeHtml(s.title) + '</a>'
+            : WikiAPI.escapeHtml(s.title);
+          div.innerHTML = '<strong>' + titleHtml + '</strong> <span class="badge">' + WikiAPI.escapeHtml(s.status) + '</span>' +
+            '<br><span class="muted">' + (s.isNewArticle ? 'New article' : 'Edit') + ' · ' + WikiAPI.escapeHtml(s.category) +
+            ' · ' + WikiAPI.formatDateTime(s.submissionDate) + ' · cost ' + s.tokenCost + ' tokens</span>';
+          contribEl.appendChild(div);
+        });
+      }).catch(function () { /* ignore */ });
+    }
+  }
+
+  window.WikiAuth = {
+    loadCurrentUser: loadCurrentUser,
+    getCurrentUser: getCurrentUser,
+    requireAuth: requireAuth,
+    logout: logout,
+    renderAuthArea: renderAuthArea
+  };
+
+  document.addEventListener('DOMContentLoaded', function () {
+    initNav();
+    initLoginForm();
+    initRegisterForm();
+    initChangePasswordForm();
+  });
+
+  window.WikiViews = window.WikiViews || {};
+  window.WikiViews.profile = function (route) {
+    initProfilePage(route.query);
+    if (window.WikiTokens && WikiTokens.initDashboard) WikiTokens.initDashboard();
+  };
+})();
+</script>
+<script>
+/* ============================================================
+   js/articles.js
+   ============================================================ */
+/**
+ * articles.js — Markdown rendering (marked + DOMPurify + highlight.js)
+ * and the logic for the home page and the article page.
+ *
+ * Security: Markdown is rendered to HTML, then passed through DOMPurify,
+ * then post-processed so that only http/https/mailto links survive.
+ * A link whose text is "Audio" and whose target is an audio file becomes
+ * an HTML5 audio player. Raw HTML inside articles is stripped by the
+ * sanitizer, event handlers are removed, and scripts can never run.
+ */
+(function () {
+  'use strict';
+
+  var AUDIO_EXTENSIONS = ['mp3', 'ogg', 'wav', 'm4a', 'opus', 'flac'];
+
+  function isSafeUrl(url) {
+    if (!url) return false;
+    try {
+      var u = new URL(url, window.location.href);
+      return u.protocol === 'http:' || u.protocol === 'https:' || u.protocol === 'mailto:';
+    } catch (e) { return false; }
+  }
+
+  function isAudioUrl(url) {
+    try {
+      var u = new URL(url, window.location.href);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+      var path = u.pathname.toLowerCase();
+      return AUDIO_EXTENSIONS.some(function (ext) { return path.endsWith('.' + ext); });
+    } catch (e) { return false; }
+  }
+
+  /**
+   * Renders Markdown to sanitized HTML inside the given element.
+   * Returns the element so callers can build a table of contents.
+   */
+  function renderMarkdownInto(el, markdown) {
+    if (!el) return el;
+    if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
+      el.textContent = markdown || '';
+      return el;
+    }
+    var rawHtml = marked.parse(markdown || '', { breaks: false, gfm: true });
+    var clean = DOMPurify.sanitize(rawHtml, {
+      FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
+      FORBID_ATTR: ['onerror', 'onclick', 'onload', 'style']
+    });
+    var holder = document.createElement('div');
+    holder.innerHTML = clean;
+
+    // Post-process links: validate protocols, turn audio links into players.
+    holder.querySelectorAll('a').forEach(function (a) {
+      var href = a.getAttribute('href') || '';
+      var text = (a.textContent || '').trim();
+      if (text.toLowerCase() === 'audio' && isAudioUrl(href)) {
+        var audio = document.createElement('audio');
+        audio.setAttribute('controls', '');
+        audio.setAttribute('preload', 'metadata');
+        audio.src = href;
+        a.replaceWith(audio);
+        return;
+      }
+      if (!isSafeUrl(href)) {
+        a.removeAttribute('href');
+        a.classList.add('unsafe-link');
+        return;
+      }
+      if (/^https?:/i.test(href)) {
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener noreferrer');
+      }
+    });
+    // Images: only http/https sources survive.
+    holder.querySelectorAll('img').forEach(function (img) {
+      var src = img.getAttribute('src') || '';
+      if (!/^https?:/i.test(src)) { img.remove(); return; }
+      img.setAttribute('loading', 'lazy');
+    });
+    // Syntax highlighting for fenced code blocks.
+    if (typeof hljs !== 'undefined') {
+      holder.querySelectorAll('pre code').forEach(function (block) {
+        try { hljs.highlightElement(block); } catch (e) { /* leave unhighlighted */ }
+      });
+    }
+    el.innerHTML = '';
+    while (holder.firstChild) el.appendChild(holder.firstChild);
+    return el;
+  }
+
+  /** Builds a table of contents from the headings inside an article body. */
+  function buildToc(contentEl, tocEl) {
+    if (!contentEl || !tocEl) return;
+    var headings = contentEl.querySelectorAll('h2, h3');
+    if (headings.length === 0) { tocEl.style.display = 'none'; return; }
+    var list = document.createElement('ul');
+    var seen = {};
+    headings.forEach(function (h, idx) {
+      var base = (h.textContent || 'section').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'section';
+      var id = base;
+      var n = 2;
+      while (seen[id]) { id = base + '-' + n; n++; }
+      seen[id] = true;
+      h.id = id;
+      var li = document.createElement('li');
+      if (h.tagName === 'H3') li.className = 'toc-sub';
+      var a = document.createElement('a');
+      a.href = '#' + id;
+      a.textContent = h.textContent;
+      li.appendChild(a);
+      list.appendChild(li);
+    });
+    tocEl.appendChild(list);
+  }
+
+  function articleCard(article) {
+    var div = document.createElement('article');
+    div.className = 'card article-card';
+    div.innerHTML =
+      '<h3><a href="#/article/' + encodeURIComponent(article.slug) + '">' +
+      WikiAPI.escapeHtml(article.title) + '</a></h3>' +
+      '<p class="muted">' + WikiAPI.escapeHtml(article.excerpt || '') + '</p>' +
+      '<p class="card-meta"><span class="badge">' + WikiAPI.escapeHtml(article.category) + '</span> ' +
+      'by ' + WikiAPI.escapeHtml(article.authorUsername) + ' · updated ' + WikiAPI.formatDate(article.updatedDate) + '</p>';
+    return div;
+  }
+
+  function fillList(el, articles, emptyMessage) {
+    if (!el) return;
+    el.innerHTML = '';
+    if (!articles || articles.length === 0) {
+      el.innerHTML = '<p class="muted">' + WikiAPI.escapeHtml(emptyMessage) + '</p>';
+      return;
+    }
+    articles.forEach(function (a) { el.appendChild(articleCard(a)); });
+  }
+
+  // ---------- home page ----------
+
+  function initHome() {
+    var recentUpdated = document.getElementById('recent-updated');
+    if (!recentUpdated) return; // not the home page
+    var recentCreated = document.getElementById('recent-created');
+    var featured = document.getElementById('featured-articles');
+    var categoriesEl = document.getElementById('category-list');
+    var searchInput = document.getElementById('search-input');
+    var searchResults = document.getElementById('search-results');
+    var allArticles = document.getElementById('all-articles-list');
+
+    WikiAPI.request('listArticles', { sort: 'updated', limit: 6 }).then(function (rows) {
+      fillList(recentUpdated, rows, 'No articles have been published yet.');
+      fillList(featured, rows.slice(0, 3), 'No featured articles yet.');
+    }).catch(function (err) { fillList(recentUpdated, [], err.message); });
+
+    WikiAPI.request('listArticles', { sort: 'created', limit: 6 }).then(function (rows) {
+      fillList(recentCreated, rows, 'No articles have been published yet.');
+    }).catch(function () { /* section stays empty on error */ });
+
+    WikiAPI.request('listArticles', { sort: 'updated', limit: 50 }).then(function (rows) {
+      fillList(allArticles, rows, 'No articles have been published yet. Log in and write the first one!');
+    }).catch(function () { /* ignore */ });
+
+    WikiAPI.request('listCategories', {}).then(function (cats) {
+      if (!categoriesEl) return;
+      categoriesEl.innerHTML = '';
+      cats.forEach(function (c) {
+        var a = document.createElement('a');
+        a.className = 'category-chip';
+        a.href = '#all-articles';
+        a.textContent = c.name + ' (' + c.articleCount + ')';
+        a.addEventListener('click', function () {
+          WikiAPI.request('listArticles', { category: c.name, limit: 50 }).then(function (rows) {
+            fillList(allArticles, rows, 'No published articles in this category yet.');
+          });
+        });
+        categoriesEl.appendChild(a);
+      });
+    }).catch(function () { /* ignore */ });
+
+    if (searchInput && !searchInput.dataset.wired) {
+      searchInput.dataset.wired = '1';
+      var debounce = null;
+      var runSearch = function () {
+        var q = searchInput.value.trim();
+        if (!q) { searchResults.innerHTML = ''; return; }
+        WikiAPI.request('listArticles', { query: q, limit: 20 }).then(function (rows) {
+          if (rows.length === 0) {
+            searchResults.innerHTML = '<p class="muted">No published articles match "' + WikiAPI.escapeHtml(q) + '".</p>';
+            return;
+          }
+          fillList(searchResults, rows, '');
+        }).catch(function (err) {
+          searchResults.innerHTML = '<p class="form-error" style="display:block">' + WikiAPI.escapeHtml(err.message) + '</p>';
+        });
+      };
+      searchInput.addEventListener('input', function () {
+        window.clearTimeout(debounce);
+        debounce = window.setTimeout(runSearch, 250);
+      });
+      var form = document.getElementById('search-form');
+      if (form) form.addEventListener('submit', function (ev) { ev.preventDefault(); runSearch(); });
+    }
+  }
+
+  // ---------- article page ----------
+
+  function initArticlePage(slug) {
+    var titleEl = document.getElementById('article-title');
+    if (!titleEl) return; // not the article view
+    var metaEl = document.getElementById('article-meta');
+    var contentEl = document.getElementById('article-content');
+    var tocEl = document.getElementById('article-toc');
+    var errorBox = document.getElementById('article-error');
+    var editBtn = document.getElementById('edit-article-btn');
+    var historyEl = document.getElementById('article-history');
+    var relatedEl = document.getElementById('related-articles');
+
+    // Views persist in the single-page app: clear any previous article.
+    WikiAPI.setText(titleEl, 'Loading\u2026');
+    if (metaEl) metaEl.innerHTML = '';
+    if (contentEl) contentEl.innerHTML = '';
+    if (tocEl) { tocEl.innerHTML = '<h2>Contents</h2>'; tocEl.style.display = ''; }
+    if (historyEl) historyEl.innerHTML = '<p class="muted">Loading\u2026</p>';
+    if (relatedEl) relatedEl.innerHTML = '';
+    WikiAPI.hideError(errorBox);
+
+    if (!slug) { WikiAPI.showError(errorBox, new Error('No article was specified.')); return; }
+
+    WikiAPI.request('getArticle', { slug: slug }).then(function (article) {
+      document.title = article.title + ' — Wiki';
+      WikiAPI.setText(titleEl, article.title);
+      metaEl.innerHTML =
+        '<span class="badge">' + WikiAPI.escapeHtml(article.category) + '</span> ' +
+        'by ' + WikiAPI.escapeHtml(article.authorUsername) +
+        ' · created ' + WikiAPI.formatDate(article.creationDate) +
+        ' · last updated ' + WikiAPI.formatDate(article.updatedDate);
+      renderMarkdownInto(contentEl, article.content);
+      buildToc(contentEl, tocEl);
+      if (editBtn) {
+        editBtn.href = '#/editor/' + encodeURIComponent(article.slug);
+      }
+      return article;
+    }).then(function (article) {
+      if (!article) return;
+      WikiAPI.request('getRelated', { slug: slug }).then(function (rows) {
+        fillList(relatedEl, rows, 'No related articles yet.');
+      }).catch(function () { /* ignore */ });
+      WikiAPI.request('getArticleHistory', { slug: slug }).then(function (rows) {
+        if (!historyEl) return;
+        historyEl.innerHTML = '';
+        if (rows.length === 0) { historyEl.innerHTML = '<p class="muted">No revision history yet.</p>'; return; }
+        var table = document.createElement('table');
+        table.className = 'data-table';
+        table.innerHTML = '<thead><tr><th>Date</th><th>Editor</th><th>Status</th><th>Approved by</th></tr></thead>';
+        var tbody = document.createElement('tbody');
+        rows.forEach(function (r) {
+          var tr = document.createElement('tr');
+          tr.innerHTML = '<td>' + WikiAPI.formatDateTime(r.timestamp) + '</td><td>' +
+            WikiAPI.escapeHtml(r.editorUsername) + '</td><td>' + WikiAPI.escapeHtml(r.status) + '</td><td>' +
+            WikiAPI.escapeHtml(r.approverUsername || '—') + '</td>';
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        historyEl.appendChild(table);
+      }).catch(function () { /* ignore */ });
+    }).catch(function (err) {
+      WikiAPI.showError(errorBox, err);
+    });
+  }
+
+  window.WikiArticles = {
+    renderMarkdownInto: renderMarkdownInto,
+    buildToc: buildToc,
+    articleCard: articleCard,
+    fillList: fillList,
+    isSafeUrl: isSafeUrl,
+    isAudioUrl: isAudioUrl
+  };
+
+  window.WikiViews = window.WikiViews || {};
+  window.WikiViews.home = initHome;
+  window.WikiViews.article = function (route) { initArticlePage(route.param); };
+})();
+</script>
+<script>
+/* ============================================================
+   js/editor.js
+   ============================================================ */
+/**
+ * editor.js — the Markdown editor: toolbar, live preview, media insert
+ * dialogs, live token-cost estimate, and submit-for-approval.
+ *
+ * The cost shown while typing is an estimate computed locally with the
+ * published pricing table. The backend recomputes the cost from the exact
+ * submitted Markdown and is the only number that is ever charged.
+ */
+(function () {
+  'use strict';
+
+  var editingSlug = null;
+  var editingArticleId = null;
+  var directMode = false;
+  var idempotencyKey = null;
+  var submittedOnce = false;
+  var editorWired = false;
+
+  function newKey() {
+    if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+    return 'key-' + Date.now() + '-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  }
+
+  function insertAtCursor(textarea, before, after, fallbackText) {
+    var start = textarea.selectionStart || 0;
+    var end = textarea.selectionEnd || 0;
+    var selected = textarea.value.substring(start, end) || fallbackText || '';
+    var insertion = before + selected + (after || '');
+    textarea.value = textarea.value.substring(0, start) + insertion + textarea.value.substring(end);
+    textarea.focus();
+    textarea.selectionStart = start + before.length;
+    textarea.selectionEnd = start + before.length + selected.length;
+    textarea.dispatchEvent(new Event('input'));
+  }
+
+  function prefixLines(textarea, prefix) {
+    var start = textarea.selectionStart || 0;
+    var lineStart = textarea.value.lastIndexOf('\n', start - 1) + 1;
+    textarea.value = textarea.value.substring(0, lineStart) + prefix + textarea.value.substring(lineStart);
+    textarea.focus();
+    textarea.dispatchEvent(new Event('input'));
+  }
+
+  function initEditor(route) {
+    var form = document.getElementById('editor-form');
+    if (!form) return; // not the editor view
+    var titleEl = document.getElementById('edit-title');
+    var categoryEl = document.getElementById('edit-category');
+    var contentEl = document.getElementById('edit-content');
+    var previewEl = document.getElementById('editor-preview');
+    var costEl = document.getElementById('cost-estimate');
+    var balanceEl = document.getElementById('token-balance-line');
+    var errorBox = document.getElementById('editor-error');
+    var successBox = document.getElementById('editor-success');
+    var headingEl = document.getElementById('editor-heading');
+    idempotencyKey = newKey();
+
+    editingSlug = route && route.param ? route.param : null;
+    directMode = !!(route && route.extra === 'direct');
+    submittedOnce = false;
+
+    WikiAuth.requireAuth('editor').catch(function () { /* redirecting */ });
+
+    // Views persist in the single-page app: reset the form for this visit.
+    WikiAPI.hideError(errorBox);
+    if (successBox) successBox.style.display = 'none';
+    titleEl.value = '';
+    contentEl.value = '';
+    if (!editingSlug) WikiAPI.setText(headingEl, 'Write a new article');
+
+    var firstWire = !editorWired;
+    editorWired = true;
+
+    // Category choices come from the backend.
+    WikiAPI.request('listCategories', {}).then(function (cats) {
+      categoryEl.innerHTML = '';
+      cats.forEach(function (c) {
+        var opt = document.createElement('option');
+        opt.value = c.name;
+        opt.textContent = c.name;
+        categoryEl.appendChild(opt);
+      });
+      if (pendingCategory) { categoryEl.value = pendingCategory; }
+    }).catch(function () { /* the backend error surfaces on submit */ });
+
+    var pendingCategory = '';
+    if (editingSlug) {
+      WikiAPI.setText(headingEl, directMode ? 'Edit article (administrator direct edit)' : 'Edit article');
+      WikiAPI.request('getArticle', { slug: editingSlug }).then(function (article) {
+        editingArticleId = article.id;
+        titleEl.value = article.title;
+        pendingCategory = article.category;
+        if (categoryEl.options.length) categoryEl.value = article.category;
+        contentEl.value = article.content;
+        contentEl.dispatchEvent(new Event('input'));
+      }).catch(function (err) { WikiAPI.showError(errorBox, err); });
+    }
+
+    function refreshBalance() {
+      WikiAPI.request('getTokenSummary', {}).then(function (s) {
+        if (s.isAdmin) {
+          balanceEl.textContent = directMode ? 'Administrator direct edit: publishes immediately and is recorded in the revision history.'
+            : 'Administrator account: unlimited tokens.';
+        } else {
+          balanceEl.textContent = 'Your balance: ' + s.remaining + ' of ' + s.dailyAllowance +
+            ' tokens remaining today (resets ' + WikiAPI.formatDateTime(s.nextResetUtc) + ').';
+        }
+      }).catch(function () { /* ignore */ });
+    }
+    refreshBalance();
+
+    WikiTokens.loadPricing().then(function () { updateEstimate(); });
+
+    function updateEstimate() {
+      var len = contentEl.value.length;
+      var cost = WikiTokens.estimateCost(contentEl.value);
+      costEl.textContent = 'Estimated cost: ' + cost + ' token' + (cost === 1 ? '' : 's') +
+        ' for ' + len + ' characters (the backend confirms the exact cost on submission).';
+      WikiArticles.renderMarkdownInto(previewEl, contentEl.value);
+    }
+
+    var previewTimer = null;
+    if (firstWire) contentEl.addEventListener('input', function () {
+      if (submittedOnce) { idempotencyKey = newKey(); submittedOnce = false; }
+      window.clearTimeout(previewTimer);
+      previewTimer = window.setTimeout(updateEstimate, 150);
+    });
+    updateEstimate();
+
+    // ----- toolbar -----
+    var wrapActions = {
+      bold: ['**', '**', 'bold text'],
+      italic: ['*', '*', 'italic text'],
+      strike: ['~~', '~~', 'struck text'],
+      code: ['`', '`', 'code'],
+      'code-block': ['\n```\n', '\n```\n', 'code here']
+    };
+    if (firstWire) document.querySelectorAll('[data-md]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var action = btn.getAttribute('data-md');
+        if (wrapActions[action]) {
+          var w = wrapActions[action];
+          insertAtCursor(contentEl, w[0], w[1], w[2]);
+        } else if (action === 'h2') prefixLines(contentEl, '## ');
+        else if (action === 'h3') prefixLines(contentEl, '### ');
+        else if (action === 'quote') prefixLines(contentEl, '> ');
+        else if (action === 'ul') prefixLines(contentEl, '- ');
+        else if (action === 'ol') prefixLines(contentEl, '1. ');
+        else if (action === 'hr') insertAtCursor(contentEl, '\n\n---\n\n', '', '');
+        else if (action === 'table') {
+          insertAtCursor(contentEl, '\n| Column A | Column B |\n| --- | --- |\n| ', ' | value |\n', 'value');
+        } else if (action === 'link') openDialog('link');
+        else if (action === 'image') openDialog('image');
+        else if (action === 'audio') openDialog('audio');
+      });
+    });
+
+    // ----- insert dialogs (link / image / audio) -----
+    var dialog = document.getElementById('insert-dialog');
+    var dialogTitle = document.getElementById('insert-dialog-title');
+    var urlInput = document.getElementById('insert-url');
+    var textInput = document.getElementById('insert-text');
+    var dialogError = document.getElementById('insert-error');
+    var dialogKind = 'link';
+
+    function openDialog(kind) {
+      dialogKind = kind;
+      WikiAPI.hideError(dialogError);
+      urlInput.value = '';
+      textInput.value = kind === 'audio' ? 'Audio' : '';
+      dialogTitle.textContent = kind === 'link' ? 'Insert link' : (kind === 'image' ? 'Insert image' : 'Insert audio');
+      document.getElementById('insert-text-label').textContent =
+        kind === 'link' ? 'Link text' : (kind === 'image' ? 'Image description' : 'Label (keep "Audio" to render a player)');
+      if (typeof dialog.showModal === 'function') dialog.showModal();
+      else dialog.setAttribute('open', '');
+    }
+
+    if (firstWire) document.getElementById('insert-cancel').addEventListener('click', function () { dialog.close(); });
+    if (firstWire) document.getElementById('insert-confirm').addEventListener('click', function () {
+      var url = urlInput.value.trim();
+      var text = textInput.value.trim();
+      if (!/^https?:\/\//i.test(url) && !(dialogKind === 'link' && /^mailto:/i.test(url))) {
+        WikiAPI.showError(dialogError, new Error('Please enter a valid http(s) URL.'));
+        return;
+      }
+      if (dialogKind === 'audio' && !WikiArticles.isAudioUrl(url)) {
+        WikiAPI.showError(dialogError, new Error('That URL does not point to a supported audio file (mp3, ogg, wav, m4a, opus, flac).'));
+        return;
+      }
+      var md;
+      if (dialogKind === 'link') md = '[' + (text || url) + '](' + url + ')';
+      else if (dialogKind === 'image') md = '![' + (text || 'image') + '](' + url + ')';
+      else md = '[' + (text || 'Audio') + '](' + url + ')';
+      dialog.close();
+      insertAtCursor(contentEl, md, '', '');
+    });
+
+    // ----- submission -----
+    if (firstWire) form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      WikiAPI.hideError(errorBox);
+      if (successBox) successBox.style.display = 'none';
+      var submitBtn = document.getElementById('submit-article');
+      submitBtn.disabled = true;
+
+      var payload = {
+        title: titleEl.value,
+        category: categoryEl.value,
+        content: contentEl.value,
+        idempotencyKey: idempotencyKey
+      };
+      var call;
+      if (directMode && editingArticleId) {
+        payload.articleId = editingArticleId;
+        call = WikiAPI.request('adminDirectEdit', payload);
+      } else if (editingSlug) {
+        payload.slug = editingSlug;
+        call = WikiAPI.request('submitEdit', payload);
+      } else {
+        call = WikiAPI.request('submitArticle', payload);
+      }
+
+      call.then(function (data) {
+        submittedOnce = true;
+        if (successBox) {
+          successBox.style.display = 'block';
+          if (directMode) {
+            successBox.textContent = 'Published immediately (administrator direct edit) and recorded in the revision history.';
+          } else {
+            successBox.textContent = 'Submitted for administrator approval. Cost: ' + data.tokenCost +
+              ' token(s). Status: ' + data.status + (data.duplicate ? ' (this was a duplicate submission — you were not charged twice)' : '') + '.';
+          }
+        }
+        refreshBalance();
+      }).catch(function (err) {
+        if (err.code === 'INSUFFICIENT_TOKENS') {
+          WikiAPI.showError(errorBox, new Error('Not enough tokens: this submission needs ' + err.required +
+            ' but you have ' + err.remaining + ' remaining. Tokens reset at ' +
+            WikiAPI.formatDateTime(err.nextResetUtc) + '.'));
+        } else {
+          WikiAPI.showError(errorBox, err);
+        }
+      }).then(function () { submitBtn.disabled = false; });
+    });
+  }
+
+  window.WikiViews = window.WikiViews || {};
+  window.WikiViews.editor = function (route) { initEditor(route); };
+})();
+</script>
+<script>
+/* ============================================================
+   js/tokens.js
+   ============================================================ */
+/**
+ * tokens.js — the user-facing token dashboard (used on the profile page)
+ * and the shared display-side pricing estimate.
+ *
+ * Display only: the backend recomputes every cost at submission time and
+ * its numbers are the ones that count. The local estimate exists so the
+ * editor can show a live price while typing.
+ */
+(function () {
+  'use strict';
+
+  var DEFAULT_PRICING = [
+    { maxChars: 100, cost: 1 },
+    { maxChars: 500, cost: 5 },
+    { maxChars: 1000, cost: 10 },
+    { maxChars: 2500, cost: 20 },
+    { maxChars: 5000, cost: 35 },
+    { maxChars: 10000, cost: 50 },
+    { maxChars: 20000, cost: 75 },
+    { maxChars: null, cost: 100 }
+  ];
+
+  var pricingTable = DEFAULT_PRICING;
+
+  /** Loads the live pricing table from the backend for display purposes. */
+  function loadPricing() {
+    return WikiAPI.request('getPublicConfig', {}).then(function (cfg) {
+      if (cfg && Array.isArray(cfg.pricingTable) && cfg.pricingTable.length) pricingTable = cfg.pricingTable;
+      return cfg;
+    }).catch(function () { return null; });
+  }
+
+  function estimateCost(content) {
+    var length = String(content || '').length;
+    for (var i = 0; i < pricingTable.length; i++) {
+      if (pricingTable[i].maxChars === null || length <= pricingTable[i].maxChars) return pricingTable[i].cost;
+    }
+    return 100;
+  }
+
+  /** Renders the token dashboard into #token-dashboard on the profile page. */
+  function initTokenDashboard() {
+    var box = document.getElementById('token-dashboard');
+    if (!box) return;
+    WikiAPI.request('getTokenSummary', {}).then(function (summary) {
+      if (summary.isAdmin) {
+        box.innerHTML = '<p><strong>Administrator account:</strong> unlimited editing tokens.</p>' +
+          '<p class="muted">Next daily reset for standard users: ' + WikiAPI.formatDateTime(summary.nextResetUtc) + ' (midnight UTC).</p>';
+        return;
+      }
+      var pct = summary.dailyAllowance > 0 ? Math.min(100, Math.round((summary.usedToday / summary.dailyAllowance) * 100)) : 0;
+      box.innerHTML =
+        '<div class="token-numbers"><strong>' + summary.usedToday + ' / ' + summary.dailyAllowance + ' used</strong>' +
+        '<span>' + summary.remaining + ' tokens remaining</span></div>' +
+        '<div class="progress" role="progressbar" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100">' +
+        '<div class="progress-bar" style="width:' + pct + '%"></div></div>' +
+        '<p class="muted">Tokens reset at midnight UTC. Next reset: ' + WikiAPI.formatDateTime(summary.nextResetUtc) + '. Unused tokens do not carry over.</p>';
+    }).catch(function (err) {
+      box.innerHTML = '<p class="form-error" style="display:block">' + WikiAPI.escapeHtml(err.message) + '</p>';
+    });
+
+    var historyEl = document.getElementById('token-history');
+    if (historyEl) {
+      WikiAPI.request('getTokenHistory', {}).then(function (rows) {
+        if (!rows.length) { historyEl.innerHTML = '<p class="muted">No token transactions yet.</p>'; return; }
+        var table = document.createElement('table');
+        table.className = 'data-table';
+        table.innerHTML = '<thead><tr><th>Date</th><th>Type</th><th>Tokens</th><th>Reason</th></tr></thead>';
+        var tbody = document.createElement('tbody');
+        rows.forEach(function (tx) {
+          var tr = document.createElement('tr');
+          tr.innerHTML = '<td>' + WikiAPI.formatDateTime(tx.timestamp) + '</td><td>' + WikiAPI.escapeHtml(tx.type) +
+            '</td><td>' + tx.amount + '</td><td>' + WikiAPI.escapeHtml(tx.reason || '') + '</td>';
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        historyEl.innerHTML = '';
+        historyEl.appendChild(table);
+      }).catch(function () { /* ignore */ });
+    }
+
+    // Submission history itself lives in the profile page's
+    // "My contributions" section (auth.js), which uses getMySubmissions.
+  }
+
+  window.WikiTokens = {
+    loadPricing: loadPricing,
+    estimateCost: estimateCost,
+    getPricingTable: function () { return pricingTable; },
+    initDashboard: function () {
+      if (!document.getElementById('token-dashboard')) return;
+      WikiAuth.loadCurrentUser().then(function (user) { if (user) initTokenDashboard(); });
+    }
+  };
+
+  document.addEventListener('DOMContentLoaded', function () {
+    loadPricing();
+  });
+})();
+</script>
+<script>
+/* ============================================================
+   js/admin.js
+   ============================================================ */
+/**
+ * admin.js — the administrator dashboard: moderation queue with a
+ * side-by-side revision comparison, user management, article management,
+ * categories, token controls, wiki configuration, statistics, audit log,
+ * and notifications. Every action is enforced again on the backend.
+ */
+(function () {
+  'use strict';
+
+  var selectedPending = null;
+  var usersById = {};
+
+  function el(id) { return document.getElementById(id); }
+
+  /** Simple line-based diff: rows of {type: same|add|remove, text}. */
+  function lineDiff(oldText, newText) {
+    var a = String(oldText || '').split('\n');
+    var b = String(newText || '').split('\n');
+    // LCS over lines, capped so huge articles stay responsive.
+    if (a.length * b.length > 250000) {
+      var rows = [];
+      var max = Math.max(a.length, b.length);
+      for (var i = 0; i < max; i++) {
+        if (a[i] === b[i]) rows.push({ type: 'same', text: a[i] || '' });
+        else {
+          if (a[i] !== undefined) rows.push({ type: 'remove', text: a[i] });
+          if (b[i] !== undefined) rows.push({ type: 'add', text: b[i] });
+        }
+      }
+      return rows;
+    }
+    var dp = [];
+    for (var x = 0; x <= a.length; x++) { dp.push(new Array(b.length + 1).fill(0)); }
+    for (var i = a.length - 1; i >= 0; i--) {
+      for (var j = b.length - 1; j >= 0; j--) {
+        dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+      }
+    }
+    var out = [];
+    var p = 0, q = 0;
+    while (p < a.length && q < b.length) {
+      if (a[p] === b[q]) { out.push({ type: 'same', text: a[p] }); p++; q++; }
+      else if (dp[p + 1][q] >= dp[p][q + 1]) { out.push({ type: 'remove', text: a[p] }); p++; }
+      else { out.push({ type: 'add', text: b[q] }); q++; }
+    }
+    while (p < a.length) { out.push({ type: 'remove', text: a[p] }); p++; }
+    while (q < b.length) { out.push({ type: 'add', text: b[q] }); q++; }
+    return out;
+  }
+
+  // ---------- notifications ----------
+
+  function loadNotifications() {
+    WikiAPI.request('adminListNotifications', {}).then(function (rows) {
+      var box = el('admin-notifications');
+      box.innerHTML = '';
+      if (!rows.length) { box.innerHTML = '<p class="muted">No notifications.</p>'; return; }
+      rows.forEach(function (n) {
+        var div = document.createElement('div');
+        div.className = 'notice-item' + (n.readStatus === 'Read' ? ' read' : '');
+        div.innerHTML = '<span>' + WikiAPI.escapeHtml(n.message) + '</span> <span class="muted">' +
+          WikiAPI.formatDateTime(n.creationDate) + '</span>';
+        if (n.readStatus !== 'Read') {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'button button-small';
+          btn.textContent = 'Mark read';
+          btn.addEventListener('click', function () {
+            WikiAPI.request('adminMarkNotificationRead', { notificationId: n.id }).then(loadNotifications);
+          });
+          div.appendChild(btn);
+        }
+        box.appendChild(div);
+      });
+    }).catch(function () { /* ignore */ });
+  }
+
+  // ---------- moderation queue ----------
+
+  function loadPending() {
+    WikiAPI.request('adminListPending', {}).then(function (rows) {
+      var box = el('pending-list');
+      box.innerHTML = '';
+      if (!rows.length) {
+        box.innerHTML = '<p class="muted">The moderation queue is empty.</p>';
+        el('diff-panel').style.display = 'none';
+        return;
+      }
+      rows.forEach(function (item) {
+        var div = document.createElement('button');
+        div.type = 'button';
+        div.className = 'pending-item';
+        div.innerHTML = '<strong>' + WikiAPI.escapeHtml(item.proposedTitle) + '</strong><br>' +
+          '<span class="muted">' + (item.isNewArticle ? 'New article' : 'Edit') + ' by ' +
+          WikiAPI.escapeHtml(item.submitterUsername) + ' · ' + WikiAPI.formatDateTime(item.submissionDate) +
+          ' · cost ' + item.tokenCost + ' tokens</span>';
+        div.addEventListener('click', function () { selectPending(item); });
+        box.appendChild(div);
+      });
+    }).catch(function (err) { WikiAPI.showError(el('admin-error'), err); });
+  }
+
+  function selectPending(item) {
+    selectedPending = item;
+    el('diff-panel').style.display = 'block';
+    el('diff-title').textContent = (item.isNewArticle ? 'New article: ' : 'Edit: ') + item.proposedTitle;
+    el('diff-meta').textContent = 'Submitted by ' + item.submitterUsername + ' on ' +
+      WikiAPI.formatDateTime(item.submissionDate) + ' · category ' + item.proposedCategory +
+      ' · token cost ' + item.tokenCost;
+    el('diff-old-text').textContent = item.isNewArticle ? '(new article — nothing published yet)' : item.currentContent;
+    el('diff-new-text').textContent = item.proposedContent;
+    WikiArticles.renderMarkdownInto(el('diff-old-render'), item.isNewArticle ? '*Nothing published yet.*' : item.currentContent);
+    WikiArticles.renderMarkdownInto(el('diff-new-render'), item.proposedContent);
+    var diffBox = el('diff-lines');
+    diffBox.innerHTML = '';
+    lineDiff(item.currentContent, item.proposedContent).forEach(function (row) {
+      var div = document.createElement('div');
+      div.className = 'diff-line diff-' + row.type;
+      div.textContent = (row.type === 'add' ? '+ ' : row.type === 'remove' ? '− ' : '  ') + row.text;
+      diffBox.appendChild(div);
+    });
+  }
+
+  function initModerationButtons() {
+    el('approve-btn').addEventListener('click', function () {
+      if (!selectedPending) return;
+      if (!window.confirm('Approve and publish "' + selectedPending.proposedTitle + '"?')) return;
+      WikiAPI.request('adminApprove', { revisionId: selectedPending.revisionId }).then(function () {
+        selectedPending = null;
+        el('diff-panel').style.display = 'none';
+        loadPending(); loadStats(); loadNotifications();
+      }).catch(function (err) { WikiAPI.showError(el('admin-error'), err); });
+    });
+    el('reject-btn').addEventListener('click', function () {
+      if (!selectedPending) return;
+      if (!window.confirm('Reject "' + selectedPending.proposedTitle + '"? The published article stays unchanged and tokens are not automatically refunded.')) return;
+      WikiAPI.request('adminReject', {
+        revisionId: selectedPending.revisionId,
+        reason: el('reject-reason').value
+      }).then(function () {
+        selectedPending = null;
+        el('diff-panel').style.display = 'none';
+        el('reject-reason').value = '';
+        loadPending(); loadStats();
+      }).catch(function (err) { WikiAPI.showError(el('admin-error'), err); });
+    });
+  }
+
+  // ---------- users ----------
+
+  function loadUsers() {
+    WikiAPI.request('adminListUsers', {}).then(function (rows) {
+      usersById = {};
+      var tbody = el('users-tbody');
+      tbody.innerHTML = '';
+      var select = el('adjust-user');
+      select.innerHTML = '';
+      rows.forEach(function (u) {
+        usersById[u.id] = u;
+        var tr = document.createElement('tr');
+        var tokenText = u.role === 'admin' ? 'Unlimited' :
+          (u.tokens.usedToday + ' / ' + u.tokens.dailyAllowance + ' used, ' + u.tokens.remaining + ' left');
+        tr.innerHTML = '<td>' + WikiAPI.escapeHtml(u.username) + '</td><td>' + WikiAPI.escapeHtml(u.email || '') +
+          '</td><td>' + WikiAPI.escapeHtml(u.role) + '</td><td>' + WikiAPI.escapeHtml(u.status) + '</td><td>' +
+          WikiAPI.formatDate(u.registrationDate) + '</td><td>' + tokenText + '</td>';
+        var actions = document.createElement('td');
+        ['Active', 'Suspended', 'Banned'].forEach(function (status) {
+          if (u.status === status) return;
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'button button-small' + (status === 'Banned' ? ' button-danger' : '');
+          btn.textContent = status === 'Active' ? 'Reactivate' : (status === 'Suspended' ? 'Suspend' : 'Ban');
+          btn.addEventListener('click', function () {
+            if (!window.confirm('Set ' + u.username + ' to ' + status + '?')) return;
+            WikiAPI.request('adminSetUserStatus', { userId: u.id, status: status })
+              .then(function () { loadUsers(); loadStats(); })
+              .catch(function (err) { WikiAPI.showError(el('admin-error'), err); });
+          });
+          actions.appendChild(btn);
+        });
+        tr.appendChild(actions);
+        tbody.appendChild(tr);
+        if (u.role !== 'admin') {
+          var opt = document.createElement('option');
+          opt.value = u.id;
+          opt.textContent = u.username;
+          select.appendChild(opt);
+        }
+      });
+    }).catch(function (err) { WikiAPI.showError(el('admin-error'), err); });
+  }
+
+  // ---------- articles & categories ----------
+
+  function loadAdminArticles() {
+    WikiAPI.request('adminListArticles', {}).then(function (rows) {
+      var tbody = el('admin-articles-tbody');
+      tbody.innerHTML = '';
+      if (!rows.length) { tbody.innerHTML = '<tr><td colspan="5" class="muted">No published articles.</td></tr>'; return; }
+      rows.forEach(function (a) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td><a href="#/article/' + encodeURIComponent(a.slug) + '">' +
+          WikiAPI.escapeHtml(a.title) + '</a></td><td>' + WikiAPI.escapeHtml(a.category) + '</td><td>' +
+          WikiAPI.escapeHtml(a.authorUsername) + '</td><td>' + WikiAPI.formatDate(a.updatedDate) + '</td>';
+        var actions = document.createElement('td');
+        var edit = document.createElement('a');
+        edit.className = 'button button-small';
+        edit.href = '#/editor/' + encodeURIComponent(a.slug) + '/direct';
+        edit.textContent = 'Direct edit';
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'button button-small button-danger';
+        del.textContent = 'Delete';
+        del.addEventListener('click', function () {
+          if (!window.confirm('Delete the article "' + a.title + '" permanently?')) return;
+          WikiAPI.request('adminDeleteArticle', { articleId: a.id })
+            .then(function () { loadAdminArticles(); loadStats(); })
+            .catch(function (err) { WikiAPI.showError(el('admin-error'), err); });
+        });
+        actions.appendChild(edit);
+        actions.appendChild(del);
+        tr.appendChild(actions);
+        tbody.appendChild(tr);
+      });
+    }).catch(function () { /* ignore */ });
+  }
+
+  function loadCategories() {
+    WikiAPI.request('listCategories', {}).then(function (cats) {
+      var box = el('admin-categories');
+      box.innerHTML = cats.map(function (c) {
+        return '<span class="category-chip">' + WikiAPI.escapeHtml(c.name) + ' (' + c.articleCount + ')</span>';
+      }).join(' ') || '<span class="muted">No categories.</span>';
+    }).catch(function () { /* ignore */ });
+  }
+
+  function initCategoryForm() {
+    el('category-form').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      WikiAPI.request('adminCreateCategory', {
+        name: el('category-name').value,
+        description: el('category-description').value
+      }).then(function () {
+        el('category-form').reset();
+        loadCategories(); loadStats();
+      }).catch(function (err) { WikiAPI.showError(el('admin-error'), err); });
+    });
+  }
+
+  // ---------- token controls & configuration ----------
+
+  function loadTransactions() {
+    WikiAPI.request('adminListTokenTransactions', {}).then(function (rows) {
+      var tbody = el('admin-transactions-tbody');
+      tbody.innerHTML = '';
+      if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6" class="muted">No transactions yet.</td></tr>'; return; }
+      rows.forEach(function (tx) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + WikiAPI.formatDateTime(tx.timestamp) + '</td><td>' + WikiAPI.escapeHtml(tx.username) +
+          '</td><td>' + WikiAPI.escapeHtml(tx.type) + '</td><td>' + tx.amount + '</td><td>' +
+          WikiAPI.escapeHtml(tx.reason || '') + '</td><td>' + (tx.adminId ? 'admin' : '—') + '</td>';
+        tbody.appendChild(tr);
+      });
+    }).catch(function () { /* ignore */ });
+  }
+
+  function initTokenForms() {
+    el('token-adjust-form').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var result = el('token-adjust-result');
+      WikiAPI.request('adminAdjustTokens', {
+        userId: el('adjust-user').value,
+        mode: el('adjust-mode').value,
+        amount: parseInt(el('adjust-amount').value, 10),
+        reason: el('adjust-reason').value,
+        idempotencyKey: 'admin-' + Date.now() + '-' + Math.random().toString(36).slice(2)
+      }).then(function (data) {
+        result.textContent = 'Done. New balance: ' + data.tokens.usedToday + ' / ' + data.tokens.dailyAllowance +
+          ' used, ' + data.tokens.remaining + ' remaining.';
+        result.style.display = 'block';
+        loadUsers(); loadTransactions();
+      }).catch(function (err) { WikiAPI.showError(el('admin-error'), err); });
+    });
+
+    WikiAPI.request('adminGetConfig', {}).then(function (cfg) {
+      el('config-allowance').value = cfg.dailyAllowance;
+      el('config-pricing').value = JSON.stringify(cfg.pricingTable, null, 2);
+    }).catch(function () { /* ignore */ });
+
+    el('config-form').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var pricing;
+      try { pricing = JSON.parse(el('config-pricing').value); }
+      catch (e) { WikiAPI.showError(el('admin-error'), new Error('Pricing table is not valid JSON.')); return; }
+      WikiAPI.request('adminSetConfig', {
+        dailyAllowance: parseInt(el('config-allowance').value, 10),
+        pricingTable: pricing
+      }).then(function (cfg) {
+        el('config-pricing').value = JSON.stringify(cfg.pricingTable, null, 2);
+        el('config-result').textContent = 'Configuration saved.';
+        el('config-result').style.display = 'block';
+        loadUsers();
+      }).catch(function (err) { WikiAPI.showError(el('admin-error'), err); });
+    });
+  }
+
+  // ---------- stats & audit ----------
+
+  function loadStats() {
+    WikiAPI.request('adminGetStats', {}).then(function (s) {
+      var box = el('admin-stats');
+      var items = [
+        ['Registered users', s.userCount], ['Suspended', s.suspendedCount], ['Banned', s.bannedCount],
+        ['Published articles', s.articleCount], ['Pending submissions', s.pendingCount],
+        ['Approved revisions', s.approvedCount], ['Rejected revisions', s.rejectedCount],
+        ['Categories', s.categoryCount], ['Tokens used today (all users)', s.tokensUsedToday],
+        ['Audit events', s.auditEventCount]
+      ];
+      box.innerHTML = items.map(function (pair) {
+        return '<div class="stat-card"><strong>' + pair[1] + '</strong><span>' + pair[0] + '</span></div>';
+      }).join('');
+    }).catch(function () { /* ignore */ });
+  }
+
+  function loadAudit() {
+    WikiAPI.request('adminListAudit', {}).then(function (rows) {
+      var tbody = el('audit-tbody');
+      tbody.innerHTML = '';
+      if (!rows.length) { tbody.innerHTML = '<tr><td colspan="4" class="muted">No audit events yet.</td></tr>'; return; }
+      rows.forEach(function (r) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + WikiAPI.formatDateTime(r.timestamp) + '</td><td>' + WikiAPI.escapeHtml(r.username || r.userId || '') +
+          '</td><td>' + WikiAPI.escapeHtml(r.action) + '</td><td>' + WikiAPI.escapeHtml(r.details || '') + '</td>';
+        tbody.appendChild(tr);
+      });
+    }).catch(function () { /* ignore */ });
+  }
+
+  // ---------- boot ----------
+
+  var adminWired = false;
+
+  function initAdmin() {
+    if (!el('admin-dashboard')) return; // not the admin view
+    WikiAuth.loadCurrentUser().then(function (user) {
+      if (!user) { window.location.hash = '#/login?next=admin'; return; }
+      if (user.role !== 'admin') {
+        el('admin-denied').style.display = 'block';
+        el('admin-dashboard').style.display = 'none';
+        return;
+      }
+      el('admin-denied').style.display = 'none';
+      el('admin-dashboard').style.display = '';
+      selectedPending = null;
+      el('diff-panel').style.display = 'none';
+      if (!adminWired) {
+        adminWired = true;
+        initModerationButtons();
+        initCategoryForm();
+        initTokenForms();
+      }
+      loadNotifications();
+      loadPending();
+      loadUsers();
+      loadAdminArticles();
+      loadCategories();
+      loadTransactions();
+      loadStats();
+      loadAudit();
+    });
+  }
+
+  window.WikiViews = window.WikiViews || {};
+  window.WikiViews.admin = initAdmin;
+})();
+</script>
+</body>
+</html>
