@@ -656,6 +656,11 @@ button.is-busy, input[type="submit"].is-busy { opacity: .55; pointer-events: non
 .toggle-row { display: flex; gap: 0.5rem; align-items: flex-start; cursor: pointer; font-weight: normal; }
 .toggle-row input { margin-top: 0.25rem; flex: none; }
 .article-content img.uploaded-image { max-width: 100%; height: auto; min-height: 48px; background: var(--surface-alt); }
+/* Live 3D model viewer (uploaded .gltf/.glb files). */
+.model-viewer-box { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-alt); overflow: hidden; margin: 1rem 0; }
+.model-viewer-box canvas { display: block; width: 100%; max-width: 100%; touch-action: none; }
+.model-viewer-box .model-status { padding: 2.2rem 1rem; text-align: center; margin: 0; }
+.model-viewer-box .model-caption { text-align: center; margin: 0; padding: 0.5rem; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -891,6 +896,7 @@ button.is-busy, input[type="submit"].is-busy { opacity: .55; pointer-events: non
           <button type="button" data-md="link" title="Insert link">🔗 Link</button>
           <button type="button" data-md="image" title="Insert image">🖼 Image</button>
           <button type="button" data-md="audio" title="Insert audio">🔊 Audio</button>
+          <button type="button" data-md="model" title="Insert 3D model (.gltf)">🧊 Model</button>
         </div>
         <label for="edit-content" class="muted small">Markdown content</label>
         <textarea id="edit-content" required></textarea>
@@ -923,6 +929,11 @@ button.is-busy, input[type="submit"].is-busy { opacity: .55; pointer-events: non
   <div class="field" id="insert-file-field" style="display:none">
     <label for="insert-file">Choose a picture</label>
     <input type="file" id="insert-file" accept="image/*">
+  </div>
+  <div class="field" id="insert-model-field" style="display:none">
+    <label for="insert-model-file">Choose a single-file model (.gltf or .glb)</label>
+    <input type="file" id="insert-model-file" accept=".gltf,.glb,model/gltf+json,model/gltf-binary">
+    <p class="muted small" style="margin:.3rem 0 0">The model is stored inside the wiki and shown as a live 3D viewer that readers can spin and zoom. It must be a <strong>single file</strong> — geometry and textures embedded, with no side .bin or texture files.</p>
   </div>
   <div class="field" id="insert-url-field">
     <label for="insert-url">URL (http or https)</label>
@@ -1096,6 +1107,9 @@ button.is-busy, input[type="submit"].is-busy { opacity: .55; pointer-events: non
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
 /* ============================================================
    js/api.js
@@ -1776,6 +1790,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
     // reference for a placeholder https URL before parsing so the
     // sanitizer keeps it; it is resolved to real data after rendering.
     var source = (markdown || '').replace(/\]\(img:([A-Za-z0-9\-]+)\)/g, '](' + IMG_REF_PREFIX + '$1)');
+    source = source.replace(/\]\(model:([A-Za-z0-9\-]+)\)/g, '](' + MODEL_REF_PREFIX + '$1)');
     var rawHtml = marked.parse(source, { breaks: false, gfm: true });
     var clean = DOMPurify.sanitize(rawHtml, {
       FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
@@ -1788,6 +1803,23 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
     holder.querySelectorAll('a').forEach(function (a) {
       var href = a.getAttribute('href') || '';
       var text = (a.textContent || '').trim();
+      if (href.indexOf(MODEL_REF_PREFIX) === 0) {
+        var box = document.createElement('div');
+        box.className = 'model-viewer-box';
+        box.setAttribute('data-file-id', href.slice(MODEL_REF_PREFIX.length));
+        var status = document.createElement('p');
+        status.className = 'muted model-status';
+        status.textContent = 'Loading 3D model…';
+        box.appendChild(status);
+        if (text) {
+          var cap = document.createElement('p');
+          cap.className = 'model-caption';
+          cap.textContent = text;
+          box.appendChild(cap);
+        }
+        a.replaceWith(box);
+        return;
+      }
       if (text.toLowerCase() === 'audio' && isAudioUrl(href)) {
         var audio = document.createElement('audio');
         audio.setAttribute('controls', '');
@@ -1828,6 +1860,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
     el.innerHTML = '';
     while (holder.firstChild) el.appendChild(holder.firstChild);
     resolveUploadedImages(el);
+    initModelViewers(el);
     return el;
   }
 
@@ -1849,6 +1882,123 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
       }).catch(function () {
         img.alt = (img.alt ? img.alt + ' ' : '') + '(picture could not be loaded)';
       });
+    });
+  }
+
+  // Placeholder host for uploaded-model references: [name](model:ID).
+  var MODEL_REF_PREFIX = 'https://wiki-models.invalid/model/';
+  var modelFileCache = {};
+
+  function base64ToArrayBuffer(b64) {
+    var binary = atob(b64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+  }
+
+  /** Fetches stored models and builds a live 3D viewer in each box. */
+  function initModelViewers(root) {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll('.model-viewer-box[data-file-id]').forEach(function (box) {
+      if (box.getAttribute('data-viewer-started')) return;
+      box.setAttribute('data-viewer-started', '1');
+      var id = box.getAttribute('data-file-id');
+      var status = box.querySelector('.model-status');
+      if (typeof THREE === 'undefined' || !THREE.GLTFLoader) {
+        if (status) status.textContent = 'The 3D viewer library could not be loaded.';
+        return;
+      }
+      var promise = modelFileCache[id];
+      if (!promise) {
+        promise = WikiAPI.request('getFile', { fileId: id }).then(function (data) {
+          return base64ToArrayBuffer(data.dataBase64);
+        });
+        modelFileCache[id] = promise;
+      }
+      promise.then(function (buffer) {
+        buildModelViewer(box, buffer);
+      }).catch(function () {
+        if (status) status.textContent = 'This 3D model could not be loaded.';
+      });
+    });
+  }
+
+  function buildModelViewer(box, buffer) {
+    var status = box.querySelector('.model-status');
+    var width = Math.max(280, box.clientWidth || 640);
+    var height = 420;
+    var renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    } catch (e) {
+      if (status) status.textContent = 'WebGL is not available in this browser.';
+      return;
+    }
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.setSize(width, height);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 2000);
+    camera.position.set(3, 2, 5);
+    // Generous lighting so colours read true even without an environment map.
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.15));
+    var key = new THREE.DirectionalLight(0xffffff, 0.9);
+    key.position.set(5, 10, 7);
+    scene.add(key);
+    var fill = new THREE.DirectionalLight(0xffffff, 0.35);
+    fill.position.set(-6, 4, -5);
+    scene.add(fill);
+
+    var controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 1.2;
+    controls.addEventListener('start', function () { controls.autoRotate = false; });
+
+    new THREE.GLTFLoader().parse(buffer, '', function (gltf) {
+      scene.add(gltf.scene);
+      var mixer = null;
+      var clip = null;
+      if (gltf.animations && gltf.animations.length) {
+        clip = gltf.animations.filter(function (c) { return /wait|idle/i.test(c.name); })[0] || gltf.animations[0];
+        mixer = new THREE.AnimationMixer(gltf.scene);
+        mixer.clipAction(clip).play();
+      }
+      // Frame the model from its animated pose, not just its bind pose:
+      // sample the clip at a few moments and union the bounds.
+      var bounds = new THREE.Box3();
+      var samples = [0, 0.4, 0.8];
+      samples.forEach(function (t) {
+        if (mixer && clip) mixer.setTime(Math.min(t, Math.max(0, clip.duration - 0.01)));
+        gltf.scene.updateMatrixWorld(true);
+        bounds.union(new THREE.Box3().setFromObject(gltf.scene));
+      });
+      if (mixer) mixer.setTime(0);
+      if (bounds.isEmpty()) bounds.setFromObject(gltf.scene);
+      var center = bounds.getCenter(new THREE.Vector3());
+      var sphere = bounds.getBoundingSphere(new THREE.Sphere());
+      var radius = Math.max(0.1, sphere.radius);
+      controls.target.copy(center);
+      var dir = new THREE.Vector3(1, 0.55, 1.4).normalize();
+      camera.position.copy(center).add(dir.multiplyScalar(radius * 2.1));
+      camera.near = radius / 100;
+      camera.far = radius * 100;
+      camera.updateProjectionMatrix();
+
+      if (status) status.remove();
+      box.insertBefore(renderer.domElement, box.firstChild);
+      var clock = new THREE.Clock();
+      (function animate() {
+        if (!document.contains(renderer.domElement)) { renderer.dispose(); return; }
+        requestAnimationFrame(animate);
+        var dt = clock.getDelta();
+        if (mixer) mixer.update(dt);
+        controls.update();
+        renderer.render(scene, camera);
+      })();
+    }, function () {
+      if (status) status.textContent = 'This file could not be read as a 3D model.';
     });
   }
 
@@ -2210,6 +2360,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
         } else if (action === 'link') openDialog('link');
         else if (action === 'image') openDialog('image');
         else if (action === 'audio') openDialog('audio');
+        else if (action === 'model') openDialog('model');
       });
     });
 
@@ -2224,31 +2375,48 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
     var fileField = document.getElementById('insert-file-field');
     var fileInput = document.getElementById('insert-file');
     var lowQualityToggle = document.getElementById('insert-low-quality');
+    var modelField = document.getElementById('insert-model-field');
+    var modelFileInput = document.getElementById('insert-model-file');
     var dialogKind = 'link';
 
-    // For images only: low quality = upload a file (compressed + stored
-    // in the wiki); high quality = the classic URL link.
-    function syncImageMode() {
+    // Which fields the dialog shows depends on the kind being inserted:
+    // images get the quality toggle (low = upload a file, compressed and
+    // stored in the wiki; high = the classic URL link); models get their
+    // own file picker; links and audio use the URL field.
+    function syncDialogMode() {
       var isImage = dialogKind === 'image';
+      var isModel = dialogKind === 'model';
       var low = isImage && lowQualityToggle.checked;
       qualityField.style.display = isImage ? '' : 'none';
       fileField.style.display = low ? '' : 'none';
-      urlField.style.display = low ? 'none' : '';
+      modelField.style.display = isModel ? '' : 'none';
+      urlField.style.display = (low || isModel) ? 'none' : '';
     }
-    if (firstWire) lowQualityToggle.addEventListener('change', syncImageMode);
+    if (firstWire) lowQualityToggle.addEventListener('change', syncDialogMode);
 
     function openDialog(kind) {
       dialogKind = kind;
       WikiAPI.hideError(dialogError);
       urlInput.value = '';
       fileInput.value = '';
+      modelFileInput.value = '';
       textInput.value = kind === 'audio' ? 'Audio' : '';
-      dialogTitle.textContent = kind === 'link' ? 'Insert link' : (kind === 'image' ? 'Insert image' : 'Insert audio');
+      dialogTitle.textContent = kind === 'link' ? 'Insert link' : (kind === 'image' ? 'Insert image' : (kind === 'model' ? 'Insert 3D model' : 'Insert audio'));
       document.getElementById('insert-text-label').textContent =
-        kind === 'link' ? 'Link text' : (kind === 'image' ? 'Image description' : 'Label (keep "Audio" to render a player)');
-      syncImageMode();
+        kind === 'link' ? 'Link text' : (kind === 'image' ? 'Image description' : (kind === 'model' ? 'Model name' : 'Label (keep "Audio" to render a player)'));
+      syncDialogMode();
       if (typeof dialog.showModal === 'function') dialog.showModal();
       else dialog.setAttribute('open', '');
+    }
+
+    /** Reads any file and returns its base64 (no compression). */
+    function readFileAsBase64(file) {
+      return new Promise(function (resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function () { resolve(String(reader.result).split(',')[1]); };
+        reader.onerror = function () { reject(new Error('That file could not be read.')); };
+        reader.readAsDataURL(file);
+      });
     }
 
     /** Shrinks a picture file on a canvas and returns its base64 (JPEG). */
@@ -2285,6 +2453,31 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
     if (firstWire) document.getElementById('insert-cancel').addEventListener('click', function () { dialog.close(); });
     if (firstWire) document.getElementById('insert-confirm').addEventListener('click', function () {
       var confirmBtn = document.getElementById('insert-confirm');
+      // 3D model path: read the .gltf/.glb file, upload its base64 to
+      // the backend (stored split across sheet cells), and insert a
+      // short model: reference that renders as a live 3D viewer.
+      if (dialogKind === 'model') {
+        var mfile = modelFileInput.files && modelFileInput.files[0];
+        if (!mfile) { WikiAPI.showError(dialogError, new Error('Choose a .gltf or .glb file first.')); return; }
+        if (!/\.(gltf|glb)$/i.test(mfile.name)) { WikiAPI.showError(dialogError, new Error('That is not a .gltf or .glb file.')); return; }
+        if (mfile.size > 8 * 1024 * 1024) { WikiAPI.showError(dialogError, new Error('That model is over the 8 MB limit.')); return; }
+        WikiAPI.hideError(dialogError);
+        confirmBtn.disabled = true;
+        readFileAsBase64(mfile).then(function (b64) {
+          return WikiAPI.request('uploadFile', {
+            fileName: mfile.name, mime: mfile.type || '', dataBase64: b64
+          });
+        }).then(function (data) {
+          confirmBtn.disabled = false;
+          dialog.close();
+          var label = textInput.value.trim() || mfile.name.replace(/\.(gltf|glb)$/i, '');
+          insertAtCursor(contentEl, '[' + label + '](model:' + data.fileId + ')', '', '');
+        }).catch(function (err) {
+          confirmBtn.disabled = false;
+          WikiAPI.showError(dialogError, err);
+        });
+        return;
+      }
       // Low-quality image path: compress the chosen file, upload its
       // base64 to the backend (which stores it split across sheet
       // cells), and insert a short img: reference into the article.
