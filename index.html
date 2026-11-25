@@ -697,6 +697,9 @@ button.is-busy, input[type="submit"].is-busy { opacity: .55; pointer-events: non
 .model-viewer-box canvas { display: block; width: 100%; max-width: 100%; touch-action: none; }
 .model-viewer-box .model-status { padding: 2.2rem 1rem; text-align: center; margin: 0; }
 .model-viewer-box .model-caption { text-align: center; margin: 0; padding: 0.5rem; font-weight: 600; }
+.model-anim-controls { display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; align-items: center; padding: 0.55rem 0.8rem; border-top: 1px solid var(--border); }
+.model-anim-controls .anim-label { font-weight: 600; font-size: 0.9rem; }
+.model-anim-option { display: inline-flex; gap: 0.3rem; align-items: center; font-size: 0.9rem; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -1155,6 +1158,7 @@ button.is-busy, input[type="submit"].is-busy { opacity: .55; pointer-events: non
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
 /* ============================================================
@@ -2042,6 +2046,134 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
     });
   }
 
+  // One shared Draco decoder for every viewer on the page. Plain
+  // (uncompressed) models never touch it; Draco-compressed models are
+  // decoded with it. The decoder files ride the same CDN and version as
+  // the Three.js scripts above.
+  var sharedDracoLoader = null;
+  function getDracoLoader() {
+    if (!sharedDracoLoader && typeof THREE !== 'undefined' && THREE.DRACOLoader) {
+      sharedDracoLoader = new THREE.DRACOLoader();
+      sharedDracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/draco/gltf/');
+    }
+    return sharedDracoLoader;
+  }
+
+  var GLTF_COMPONENT_BYTES = { 5120: 1, 5121: 1, 5122: 2, 5123: 2, 5125: 4, 5126: 4 };
+  var GLTF_TYPE_COUNTS = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT2: 4, MAT3: 9, MAT4: 16 };
+
+  /**
+   * Some exporters (glTF-Transform and friends) produce files the stock
+   * loader refuses even with Draco enabled: textures whose only source
+   * sits inside EXT_texture_webp, and animation accessors with no
+   * bufferView at all (all-zero data, omitted from the file). Both are
+   * repaired here, in the file bytes, before parsing: WebP sources are
+   * promoted to plain texture sources (every modern browser decodes
+   * WebP itself), and each empty accessor gains a real zero-filled
+   * bufferView appended to the buffer. Files without these quirks are
+   * returned byte-for-byte unchanged, so plain models load exactly as
+   * they always have.
+   */
+  function prepareModelBuffer(buffer) {
+    try {
+      var bytes = new Uint8Array(buffer);
+      var isGlb = bytes.length > 4 && bytes[0] === 0x67 && bytes[1] === 0x6C && bytes[2] === 0x54 && bytes[3] === 0x46;
+      var json, bin = null;
+      if (isGlb) {
+        var dv = new DataView(buffer);
+        var jsonLen = dv.getUint32(12, true);
+        json = JSON.parse(new TextDecoder().decode(bytes.subarray(20, 20 + jsonLen)));
+        var binOff = 20 + jsonLen;
+        if (binOff + 8 <= bytes.length) {
+          var binLen = dv.getUint32(binOff, true);
+          bin = bytes.slice(binOff + 8, binOff + 8 + binLen);
+        }
+      } else {
+        json = JSON.parse(new TextDecoder().decode(bytes));
+        if (json.buffers && json.buffers[0] && /^data:/.test(json.buffers[0].uri || '')) {
+          var raw = atob(json.buffers[0].uri.split(',')[1] || '');
+          bin = new Uint8Array(raw.length);
+          for (var i = 0; i < raw.length; i++) bin[i] = raw.charCodeAt(i);
+        }
+      }
+      var needsWebp = (json.textures || []).some(function (t) {
+        return t.extensions && t.extensions.EXT_texture_webp &&
+          typeof t.extensions.EXT_texture_webp.source === 'number' && typeof t.source !== 'number';
+      });
+      var emptyAccessors = (json.accessors || []).filter(function (a) {
+        return a.bufferView === undefined && !a.sparse;
+      });
+      if (!needsWebp && !emptyAccessors.length) return buffer;
+
+      if (needsWebp) {
+        json.textures.forEach(function (t) {
+          if (t.extensions && t.extensions.EXT_texture_webp && typeof t.source !== 'number') {
+            t.source = t.extensions.EXT_texture_webp.source;
+          }
+          if (t.extensions) delete t.extensions.EXT_texture_webp;
+        });
+        ['extensionsUsed', 'extensionsRequired'].forEach(function (key) {
+          if (Array.isArray(json[key])) {
+            json[key] = json[key].filter(function (e) { return e !== 'EXT_texture_webp'; });
+          }
+        });
+      }
+
+      if (emptyAccessors.length && bin) {
+        var extra = [];
+        json.bufferViews = json.bufferViews || [];
+        emptyAccessors.forEach(function (a) {
+          var size = (GLTF_COMPONENT_BYTES[a.componentType] || 1) * (GLTF_TYPE_COUNTS[a.type] || 1) * (a.count || 0);
+          while ((bin.length + extra.length) % 4) extra.push(0);
+          a.bufferView = json.bufferViews.length;
+          json.bufferViews.push({ buffer: 0, byteOffset: bin.length + extra.length, byteLength: size });
+          a.byteOffset = 0;
+          for (var z = 0; z < size; z++) extra.push(0);
+        });
+        var grown = new Uint8Array(bin.length + extra.length);
+        grown.set(bin);
+        grown.set(extra, bin.length);
+        bin = grown;
+        if (json.buffers && json.buffers[0]) json.buffers[0].byteLength = bin.length;
+      }
+
+      var newJsonText = JSON.stringify(json);
+      if (isGlb) {
+        var jsonBytes = new TextEncoder().encode(newJsonText);
+        var jsonPad = (4 - (jsonBytes.length % 4)) % 4;
+        var binBytes = bin || new Uint8Array(0);
+        var total = 12 + 8 + jsonBytes.length + jsonPad + (binBytes.length ? 8 + binBytes.length : 0);
+        var outBytes = new Uint8Array(total);
+        var odv = new DataView(outBytes.buffer);
+        odv.setUint32(0, 0x46546C67, true); // 'glTF'
+        odv.setUint32(4, 2, true);
+        odv.setUint32(8, total, true);
+        odv.setUint32(12, jsonBytes.length + jsonPad, true);
+        odv.setUint32(16, 0x4E4F534A, true); // 'JSON'
+        outBytes.set(jsonBytes, 20);
+        for (var p = 0; p < jsonPad; p++) outBytes[20 + jsonBytes.length + p] = 0x20;
+        if (binBytes.length) {
+          var bo = 20 + jsonBytes.length + jsonPad;
+          odv.setUint32(bo, binBytes.length, true);
+          odv.setUint32(bo + 4, 0x004E4942, true); // 'BIN\0'
+          outBytes.set(binBytes, bo + 8);
+        }
+        return outBytes.buffer;
+      }
+      if (bin && json.buffers && json.buffers[0]) {
+        var b64 = '';
+        for (var k = 0; k < bin.length; k += 0x8000) {
+          b64 += String.fromCharCode.apply(null, bin.subarray(k, k + 0x8000));
+        }
+        json.buffers[0].uri = 'data:application/octet-stream;base64,' + btoa(b64);
+        newJsonText = JSON.stringify(json);
+      }
+      return new TextEncoder().encode(newJsonText).buffer;
+    } catch (e) {
+      return buffer; // any surprise: hand the loader the original file
+    }
+  }
+
   function buildModelViewer(box, buffer) {
     var status = box.querySelector('.model-status');
     var width = Math.max(280, box.clientWidth || 640);
@@ -2075,14 +2207,22 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
     controls.autoRotateSpeed = 1.2;
     controls.addEventListener('start', function () { controls.autoRotate = false; });
 
-    new THREE.GLTFLoader().parse(buffer, '', function (gltf) {
+    var loader = new THREE.GLTFLoader();
+    var dracoLoader = getDracoLoader();
+    if (dracoLoader) loader.setDRACOLoader(dracoLoader);
+    loader.parse(prepareModelBuffer(buffer), '', function (gltf) {
       scene.add(gltf.scene);
       var mixer = null;
       var clip = null;
+      var actions = [];
       if (gltf.animations && gltf.animations.length) {
-        clip = gltf.animations.filter(function (c) { return /wait|idle/i.test(c.name); })[0] || gltf.animations[0];
         mixer = new THREE.AnimationMixer(gltf.scene);
-        mixer.clipAction(clip).play();
+        clip = gltf.animations.filter(function (c) { return /wait|idle/i.test(c.name); })[0] || gltf.animations[0];
+        actions = gltf.animations.map(function (c) {
+          var action = mixer.clipAction(c);
+          if (c === clip) action.play();
+          return { clip: c, action: action };
+        });
       }
       // Frame the model from its animated pose, not just its bind pose:
       // sample the clip at a few moments and union the bounds.
@@ -2139,6 +2279,40 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
 
       if (status) status.remove();
       box.insertBefore(renderer.domElement, box.firstChild);
+      // Animation picker: one checkbox per clip in the file. The idle
+      // clip starts ticked and playing, as before; ticking others plays
+      // them alongside, unticking fades them out. Models without
+      // animations get no bar. (Auto-rotate above is untouched.)
+      if (actions.length) {
+        var animBar = document.createElement('div');
+        animBar.className = 'model-anim-controls';
+        var animLabel = document.createElement('span');
+        animLabel.className = 'anim-label';
+        animLabel.textContent = 'Animations:';
+        animBar.appendChild(animLabel);
+        actions.forEach(function (entry) {
+          var label = document.createElement('label');
+          label.className = 'model-anim-option';
+          var cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = entry.clip === clip;
+          cb.addEventListener('change', function () {
+            if (cb.checked) {
+              entry.action.reset();
+              entry.action.fadeIn(0.2);
+              entry.action.play();
+            } else {
+              entry.action.fadeOut(0.2);
+              var fading = entry.action;
+              window.setTimeout(function () { if (fading.getEffectiveWeight() <= 0.01) fading.stop(); }, 260);
+            }
+          });
+          label.appendChild(cb);
+          label.appendChild(document.createTextNode(entry.clip.name || 'Animation'));
+          animBar.appendChild(label);
+        });
+        box.appendChild(animBar);
+      }
       var clock = new THREE.Clock();
       (function animate() {
         if (!document.contains(renderer.domElement)) { renderer.dispose(); return; }
