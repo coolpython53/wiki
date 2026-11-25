@@ -1712,6 +1712,27 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
           div.innerHTML = '<strong>' + titleHtml + '</strong> <span class="badge">' + WikiAPI.escapeHtml(s.status) + '</span>' +
             '<br><span class="muted">' + (s.isNewArticle ? 'New article' : 'Edit') + ' · ' + WikiAPI.escapeHtml(s.category) +
             ' · ' + WikiAPI.formatDateTime(s.submissionDate) + ' · cost ' + s.tokenCost + ' tokens</span>';
+          if (s.status === 'Rejected' && s.content) {
+            // The rejected text comes back with the row (backend returns it
+            // only to its author, only for Rejected rows). Carry it to the
+            // editor as a one-shot draft so nothing has to be retyped.
+            var resubmitBtn = document.createElement('button');
+            resubmitBtn.type = 'button';
+            resubmitBtn.className = 'button';
+            resubmitBtn.style.marginTop = '8px';
+            resubmitBtn.textContent = '✏️ Edit & resubmit';
+            resubmitBtn.addEventListener('click', function () {
+              try {
+                window.sessionStorage.setItem('wikiResubmitDraft', JSON.stringify({
+                  title: s.title, category: s.category, content: s.content,
+                  articleSlug: s.articleSlug, isNewArticle: !!s.isNewArticle
+                }));
+              } catch (e) { /* storage unavailable: the editor simply opens empty */ }
+              window.location.hash = s.isNewArticle ? '#/editor' : '#/editor/' + encodeURIComponent(s.articleSlug);
+            });
+            div.appendChild(document.createElement('br'));
+            div.appendChild(resubmitBtn);
+          }
           contribEl.appendChild(div);
         });
       }).catch(function () { /* ignore */ });
@@ -1967,12 +1988,34 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
       }
       // Frame the model from its animated pose, not just its bind pose:
       // sample the clip at a few moments and union the bounds.
+      // Skinned models are measured through their bones (boneTransform):
+      // some rigs carry a large scale on the mesh node that skinning
+      // cancels out, so the plain Box3 can be ~100x larger than the model
+      // actually renders — the camera then parks far too away and the
+      // model shows as a speck. Unskinned models keep the Box3 path.
       var bounds = new THREE.Box3();
       var samples = [0, 0.4, 0.8];
+      var skinnedMeshes = [];
+      gltf.scene.traverse(function (o) { if (o.isSkinnedMesh) skinnedMeshes.push(o); });
+      var tmpV = new THREE.Vector3();
       samples.forEach(function (t) {
         if (mixer && clip) mixer.setTime(Math.min(t, Math.max(0, clip.duration - 0.01)));
         gltf.scene.updateMatrixWorld(true);
-        bounds.union(new THREE.Box3().setFromObject(gltf.scene));
+        if (skinnedMeshes.length) {
+          skinnedMeshes.forEach(function (mesh) {
+            if (mesh.skeleton) mesh.skeleton.update();
+            var pos = mesh.geometry && mesh.geometry.attributes && mesh.geometry.attributes.position;
+            if (!pos) return;
+            var step = Math.max(1, Math.floor(pos.count / 400));
+            for (var i = 0; i < pos.count; i += step) {
+              mesh.boneTransform(i, tmpV);
+              tmpV.applyMatrix4(mesh.matrixWorld);
+              bounds.expandByPoint(tmpV);
+            }
+          });
+        } else {
+          bounds.union(new THREE.Box3().setFromObject(gltf.scene));
+        }
       });
       if (mixer) mixer.setTime(0);
       if (bounds.isEmpty()) bounds.setFromObject(gltf.scene);
@@ -2292,7 +2335,28 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
     }).catch(function () { /* the backend error surfaces on submit */ });
 
     var pendingCategory = '';
-    if (editingSlug) {
+    // A rejected submission being resubmitted arrives as a one-shot draft
+    // in sessionStorage (stored by the profile page's Edit & resubmit
+    // button). It is consumed here so a later plain visit to the editor
+    // never sees it, and it wins over the getArticle prefill below: for a
+    // rejected edit, the published content must not overwrite the
+    // rejected text the author wants to fix.
+    var resubmitDraft = null;
+    try {
+      resubmitDraft = JSON.parse(window.sessionStorage.getItem('wikiResubmitDraft') || 'null');
+      window.sessionStorage.removeItem('wikiResubmitDraft');
+    } catch (e) { resubmitDraft = null; }
+    var draftApplies = !!(resubmitDraft && typeof resubmitDraft.content === 'string' &&
+      ((resubmitDraft.isNewArticle && !editingSlug) ||
+       (!resubmitDraft.isNewArticle && editingSlug && resubmitDraft.articleSlug === editingSlug)));
+    if (draftApplies) {
+      WikiAPI.setText(headingEl, resubmitDraft.isNewArticle ? 'Resubmit rejected article' : 'Resubmit rejected edit');
+      titleEl.value = resubmitDraft.title || '';
+      pendingCategory = resubmitDraft.category || '';
+      if (pendingCategory && categoryEl.options.length) categoryEl.value = pendingCategory;
+      contentEl.value = resubmitDraft.content;
+      contentEl.dispatchEvent(new Event('input'));
+    } else if (editingSlug) {
       WikiAPI.setText(headingEl, directMode ? 'Edit article (administrator direct edit)' : 'Edit article');
       WikiAPI.request('getArticle', { slug: editingSlug }).then(function (article) {
         editingArticleId = article.id;
