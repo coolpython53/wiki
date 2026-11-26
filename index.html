@@ -903,6 +903,7 @@ button.is-busy, input[type="submit"].is-busy { opacity: .55; pointer-events: non
   <h1>📥 Inbox</h1>
   <p class="muted">Your wiki messages live here — approvals, rejections, and moderation
      notices. Nothing is emailed to you; this page is the mailbox.</p>
+  <button type="button" class="button" id="inbox-read-all">Mark all read</button>
   <div class="form-error" id="inbox-error"></div>
   <div id="inbox-list"><p class="muted">Loading…</p></div>
 </section>
@@ -1020,6 +1021,14 @@ button.is-busy, input[type="submit"].is-busy { opacity: .55; pointer-events: non
     <section class="admin-section" data-admin-tab="review">
       <h2>Moderation queue</h2>
       <div id="pending-list"><p class="muted">Loading…</p></div>
+      <div style="margin:.75rem 0">
+        <button type="button" class="button" id="approve-all-btn">Approve all</button>
+        <button type="button" class="button button-danger" id="reject-all-btn">Reject all</button>
+        <span class="form-success" id="bulk-result"></span>
+        <p class="muted">Approve all publishes every waiting submission at once; Reject all
+          rejects them all (the reason typed below, if any, is sent to every author).
+          Tokens are not automatically refunded by Reject all.</p>
+      </div>
 
       <div id="diff-panel" style="display:none">
         <h3 id="diff-title"></h3>
@@ -1843,6 +1852,18 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
     var listEl = document.getElementById('inbox-list');
     var errorBox = document.getElementById('inbox-error');
     if (!listEl) return;
+    var readAllBtn = document.getElementById('inbox-read-all');
+    if (readAllBtn && !readAllBtn.getAttribute('data-wired')) {
+      readAllBtn.setAttribute('data-wired', '1');
+      readAllBtn.addEventListener('click', function () {
+        readAllBtn.disabled = true;
+        WikiAPI.request('markAllMyNotificationsRead', {}).then(function () {
+          initInboxPage();
+          refreshInboxBadge();
+        }).catch(function (err) { WikiAPI.showError(errorBox, err); })
+          .then(function () { readAllBtn.disabled = false; });
+      });
+    }
     WikiAuth.requireAuth('inbox').catch(function () { /* redirecting */ });
     WikiAPI.hideError(errorBox);
     listEl.innerHTML = '<p class="muted">Loading…</p>';
@@ -2003,6 +2024,57 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
   var IMG_REF_PREFIX = 'https://wiki-images.invalid/img/';
   var uploadedImageCache = {};
 
+  /**
+   * Fetches a stored picture/model piece by piece instead of in one
+   * giant response: first the info (how many pieces there are), then
+   * batches of pieces — a few batches in flight at once, each batch
+   * retried once if it fails. onProgress(fetched, total) is called as
+   * pieces land. Resolves to { mime, dataBase64 }.
+   */
+  function fetchStoredFile(kind, id, onProgress) {
+    var isFile = kind === 'file';
+    var idField = isFile ? 'fileId' : 'imageId';
+    var params = {};
+    params[idField] = id;
+    return WikiAPI.request(isFile ? 'getFileInfo' : 'getImageInfo', params).then(function (info) {
+      var total = info.chunks || 0;
+      if (!total) throw new Error('Stored file is empty.');
+      var pieces = new Array(total);
+      var fetched = 0;
+      var BATCH = 8;
+      var starts = [];
+      for (var s = 0; s < total; s += BATCH) starts.push(s);
+      var next = 0;
+      function note(res, start) {
+        (res.chunks || []).forEach(function (piece, i) { pieces[start + i] = piece; });
+        fetched += (res.chunks || []).length;
+        if (onProgress) onProgress(fetched, total);
+      }
+      function fetchBatch(start) {
+        var p = {};
+        p[idField] = id; p.from = start; p.count = BATCH;
+        return WikiAPI.request(isFile ? 'getFileChunks' : 'getImageChunks', p).then(function (res) {
+          note(res, start);
+        }, function () {
+          // One retry for this batch before the whole load gives up.
+          return WikiAPI.request(isFile ? 'getFileChunks' : 'getImageChunks', p).then(function (res) {
+            note(res, start);
+          });
+        });
+      }
+      function worker() {
+        if (next >= starts.length) return Promise.resolve();
+        var start = starts[next++];
+        return fetchBatch(start).then(worker);
+      }
+      var workers = [];
+      for (var w = 0; w < Math.min(3, starts.length); w++) workers.push(worker());
+      return Promise.all(workers).then(function () {
+        return { mime: info.mime, dataBase64: pieces.join('') };
+      });
+    });
+  }
+
   /** Fetches uploaded pictures by ID and swaps them into the page. */
   function resolveUploadedImages(root) {
     if (!root || !root.querySelectorAll) return;
@@ -2010,7 +2082,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
       var id = img.getAttribute('data-image-id');
       if (!id) return;
       if (uploadedImageCache[id]) { img.src = uploadedImageCache[id]; return; }
-      WikiAPI.request('getImage', { imageId: id }).then(function (data) {
+      fetchStoredFile('image', id, null).then(function (data) {
         var uri = 'data:' + (data.mime || 'image/jpeg') + ';base64,' + data.dataBase64;
         uploadedImageCache[id] = uri;
         img.src = uri;
@@ -2045,7 +2117,9 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
       }
       var promise = modelFileCache[id];
       if (!promise) {
-        promise = WikiAPI.request('getFile', { fileId: id }).then(function (data) {
+        promise = fetchStoredFile('file', id, function (fetched, total) {
+          if (status) status.textContent = 'Loading model… piece ' + fetched + ' of ' + total;
+        }).then(function (data) {
           return base64ToArrayBuffer(data.dataBase64);
         });
         modelFileCache[id] = promise;
@@ -3162,6 +3236,38 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
     });
   }
 
+  function initBulkButtons() {
+    el('approve-all-btn').addEventListener('click', function () {
+      if (!window.confirm('Approve ALL waiting submissions and publish them?')) return;
+      var btn = el('approve-all-btn');
+      btn.disabled = true;
+      WikiAPI.request('adminApproveAll', {}).then(function (r) {
+        var text = 'Approved ' + r.approved + ' submission(s).';
+        if (r.failed && r.failed.length) text += ' ' + r.failed.length + ' could not be approved and are still waiting.';
+        el('bulk-result').textContent = text;
+        selectedPending = null;
+        el('diff-panel').style.display = 'none';
+        loadPending(); loadStats();
+      }).catch(function (err) { WikiAPI.showError(el('admin-error'), err); })
+        .then(function () { btn.disabled = false; });
+    });
+    el('reject-all-btn').addEventListener('click', function () {
+      if (!window.confirm('Reject ALL waiting submissions? Published articles stay unchanged and tokens are not automatically refunded.')) return;
+      var btn = el('reject-all-btn');
+      btn.disabled = true;
+      WikiAPI.request('adminRejectAll', { reason: el('reject-reason').value }).then(function (r) {
+        var text = 'Rejected ' + r.rejected + ' submission(s).';
+        if (r.failed && r.failed.length) text += ' ' + r.failed.length + ' could not be rejected and are still waiting.';
+        el('bulk-result').textContent = text;
+        el('reject-reason').value = '';
+        selectedPending = null;
+        el('diff-panel').style.display = 'none';
+        loadPending(); loadStats();
+      }).catch(function (err) { WikiAPI.showError(el('admin-error'), err); })
+        .then(function () { btn.disabled = false; });
+    });
+  }
+
   function initCleanupButton() {
     el('cleanup-btn').addEventListener('click', function () {
       var btn = el('cleanup-btn');
@@ -3410,6 +3516,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
       if (!adminWired) {
         adminWired = true;
         initModerationButtons();
+        initBulkButtons();
         initCategoryForm();
         initTokenForms();
         initCleanupButton();
