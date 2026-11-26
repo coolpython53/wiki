@@ -1111,6 +1111,18 @@ button.is-busy, input[type="submit"].is-busy { opacity: .55; pointer-events: non
       </form>
     </section>
 
+    <section class="admin-section" data-admin-tab="settings">
+      <h2>Storage cleanup</h2>
+      <p class="muted">Uploaded pictures and 3D models are stored in the wiki's sheets.
+        A file that no published article — and no submission still waiting or rejected —
+        points to is deleted for good. That sweep already runs by itself whenever an
+        article is approved, directly edited, or deleted; this button runs it now.
+        Files uploaded in the last day are always kept, so a picture placed into a
+        draft that has not been submitted yet is safe.</p>
+      <button type="button" class="button" id="cleanup-btn">Delete unused files now</button>
+      <div class="form-success" id="cleanup-result"></div>
+    </section>
+
     <section class="admin-section" data-admin-tab="content">
       <h2>Published articles</h2>
       <div class="table-scroll">
@@ -3150,6 +3162,19 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
     });
   }
 
+  function initCleanupButton() {
+    el('cleanup-btn').addEventListener('click', function () {
+      var btn = el('cleanup-btn');
+      btn.disabled = true;
+      WikiAPI.request('adminCleanupFiles', {}).then(function (r) {
+        el('cleanup-result').textContent = 'Deleted ' + r.imagesDeleted + ' unused picture(s) and ' +
+          r.modelsDeleted + ' unused model(s). Kept ' + r.imagesKept + ' picture(s) and ' +
+          r.modelsKept + ' model(s) that are in use or newly uploaded.';
+      }).catch(function (err) { WikiAPI.showError(el('admin-error'), err); })
+        .then(function () { btn.disabled = false; });
+    });
+  }
+
   function initModerationButtons() {
     el('approve-btn').addEventListener('click', function () {
       if (!selectedPending) return;
@@ -3387,6 +3412,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxJm0mgWAX65pefSieXa2M4
         initModerationButtons();
         initCategoryForm();
         initTokenForms();
+        initCleanupButton();
         initAdminTabs();
       } else {
         var savedTab = 'review';
